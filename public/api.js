@@ -1,0 +1,53 @@
+// api.js — thin fetch wrapper for the backend API
+// All functions return Promise. Backend runs at same origin (localhost:3000 in dev).
+
+;(function() {
+
+const BASE = ''; // same origin — no need to specify host
+
+async function apiFetch(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(BASE + path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw Object.assign(new Error(err.error || res.statusText), { status: res.status });
+  }
+  return res.json();
+}
+
+// ── State (single-project) ──────────────────────────────────────────────────
+// Returns { data, updated_at } or throws 404-ish error if no state saved yet
+async function apiGetState() {
+  return apiFetch('GET', '/api/state');
+}
+
+// Saves data to server. data = { TS, 'TS-1', 'TS-2' }
+async function apiSaveState(data) {
+  return apiFetch('PUT', '/api/state', { data });
+}
+
+// ── Presets ─────────────────────────────────────────────────────────────────
+// Returns [{ id, name, label }]
+async function apiGetPresets() {
+  return apiFetch('GET', '/api/presets');
+}
+
+// Returns { id, name, label, data }
+async function apiGetPreset(id) {
+  return apiFetch('GET', '/api/presets/' + encodeURIComponent(id));
+}
+
+// ── Health ───────────────────────────────────────────────────────────────────
+async function apiHealth() {
+  return apiFetch('GET', '/api/health');
+}
+
+// ── Expose ───────────────────────────────────────────────────────────────────
+window.apiGetState   = apiGetState;
+window.apiSaveState  = apiSaveState;
+window.apiGetPresets = apiGetPresets;
+window.apiGetPreset  = apiGetPreset;
+window.apiHealth     = apiHealth;
+
+})();

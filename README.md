@@ -17,8 +17,8 @@ Simulator interaktif kesehatan keuangan perguruan tinggi berdasarkan 29 rasio ke
 
 ## Prasyarat
 
-- Node.js ≥ 18
-- npm ≥ 9
+- Node.js ≥ 18 (download: https://nodejs.org)
+- npm ≥ 9 (sudah termasuk dalam installer Node.js)
 
 ## Setup & Menjalankan
 
@@ -35,7 +35,7 @@ npm start
 
 Buka browser ke **http://localhost:3000**
 
-> Database (`data/rkk.db`) dibuat otomatis saat pertama kali dijalankan. 4 preset universitas (Sangat Baik, Baik, Perhatian, Berisiko) di-seed otomatis.
+> Data disimpan di folder `data/` sebagai file JSON (`state.json`, `presets.json`). Keduanya dibuat otomatis saat pertama kali dijalankan. 4 preset universitas (Sangat Baik, Baik, Perhatian, Berisiko) di-seed otomatis.
 
 ## Struktur Folder
 
@@ -54,11 +54,10 @@ Buka browser ke **http://localhost:3000**
 │   └── ...
 ├── server/
 │   ├── index.js        ← Express server
-│   ├── db.js           ← SQLite init, migration, seed
-│   └── migrations/
-│       └── 001_init.sql
-├── data/
-│   └── rkk.db          ← SQLite (gitignored, auto-created)
+│   └── db.js           ← JSON-file persistence (state.json + presets.json)
+├── data/               ← Auto-dibuat saat server pertama kali jalan
+│   ├── state.json      ← State terakhir yang disimpan (gitignored)
+│   └── presets.json    ← 4 preset universitas (gitignored)
 ├── package.json
 └── .gitignore
 ```

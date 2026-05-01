@@ -28,28 +28,39 @@ function App() {
   const [resultTab, setResultTab] = useState('overview');
   const [whatIf, setWhatIf] = useState({ enabled: false, overrides: {} });
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'offline'
-  const saveTimer = useRef(null);
+  const saveTimer  = useRef(null);
+  // null = unknown, true = backend reachable, false = no backend (static/Vercel)
+  const backendRef = useRef(null);
 
-  // On mount: try to restore state from server, fallback to localStorage
+  // On mount: probe /api/health first, then restore state if backend is up
   useEffect(() => {
-    if (typeof window.apiGetState !== 'function') return; // api.js not loaded
-    window.apiGetState().then(res => {
-      if (res && res.data) {
-        setData(res.data);
-        setSaveStatus('saved');
-      }
-    }).catch(err => {
-      // 404 = no state saved yet (normal on first run), other errors = offline
-      if (err.status !== 404) setSaveStatus('offline');
-    });
+    if (typeof window.apiHealth !== 'function') return;
+    window.apiHealth()
+      .then(() => {
+        backendRef.current = true;
+        return window.apiGetState();
+      })
+      .then(res => {
+        if (res && res.data) { setData(res.data); setSaveStatus('saved'); }
+      })
+      .catch(err => {
+        if (backendRef.current === null) {
+          // health check failed → no backend (static deploy / offline)
+          backendRef.current = false;
+        } else if (err && err.status !== 404) {
+          // backend is up but returned an unexpected error
+          setSaveStatus('offline');
+        }
+      });
   }, []);
 
-  // Auto-save: persist to localStorage immediately + debounce server save 1.5s
+  // Auto-save: always write localStorage; only call API when backend is confirmed up
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
     if (typeof window.apiSaveState !== 'function') return;
+    if (backendRef.current === false) return; // static deploy — skip API silently
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    setSaveStatus('saving');
+    if (backendRef.current === true) setSaveStatus('saving');
     saveTimer.current = setTimeout(() => {
       window.apiSaveState(data)
         .then(() => setSaveStatus('saved'))

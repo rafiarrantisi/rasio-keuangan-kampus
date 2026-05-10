@@ -4,8 +4,8 @@ function GaugeIKK({ value, components }) {
   const max = 4;
   const safeVal = Math.min(max, Math.max(0, value || 0));
   const pct = safeVal / max;
-  const W = 320, H = 210;
-  const cx = W / 2, cy = 158, r = 108;
+  const W = 300, H = 195;
+  const cx = W / 2, cy = 148, r = 100;
   const startA = Math.PI, endA = 0; // 180° → 0°
   const angleAt = (t) => startA + (endA - startA) * t;
   const polar = (radius, t) => {
@@ -43,7 +43,8 @@ function GaugeIKK({ value, components }) {
   ];
 
   return (
-    <div className="gauge-wrap">
+    <div className="gauge-wrap gauge-horizontal">
+      <div className="gauge-left">
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="chart" style={{maxWidth: W}}>
         {/* Track background */}
         <path d={arcPath(0, 1, r)} fill="none" stroke="#ece7db" strokeWidth="16" strokeLinecap="butt" />
@@ -87,11 +88,11 @@ function GaugeIKK({ value, components }) {
         <circle cx={cx} cy={cy} r="10" fill="#142847" />
         <circle cx={cx} cy={cy} r="4.5" fill="#fff" />
         {/* Center value */}
-        <text x={cx} y={cy - 44} textAnchor="middle"
-          style={{fontFamily:'Plus Jakarta Sans', fontWeight:800, fontSize:46, fill:'#142847', letterSpacing:'-0.02em'}}>
+        <text x={cx} y={cy - 40} textAnchor="middle"
+          style={{fontFamily:'Plus Jakarta Sans', fontWeight:800, fontSize:36, fill:'#142847', letterSpacing:'-0.02em'}}>
           {safeVal.toFixed(2)}
         </text>
-        <text x={cx} y={cy - 22} textAnchor="middle"
+        <text x={cx} y={cy - 20} textAnchor="middle"
           style={{fontSize:10, fill:'#8a96aa', letterSpacing:'.1em', fontWeight:600}}>
           dari 4.00
         </text>
@@ -102,6 +103,17 @@ function GaugeIKK({ value, components }) {
           {status.label}
         </text>
       </svg>
+
+      {/* Thresholds legend */}
+      <div className="gauge-thresholds">
+        {segments.map(s => (
+          <span key={s.label}>
+            <i style={{background: s.color}}></i>
+            {s.range} {s.label}
+          </span>
+        ))}
+      </div>
+      </div>{/* end gauge-left */}
 
       {/* Component breakdown */}
       {components && components.length > 0 && (
@@ -126,22 +138,12 @@ function GaugeIKK({ value, components }) {
           <div className="gc-note">Kontribusi ke IKK (maks per komponen = bobot × 4). Total: {safeVal.toFixed(2)}</div>
         </div>
       )}
-
-      {/* Thresholds legend */}
-      <div className="gauge-thresholds">
-        {segments.map(s => (
-          <span key={s.label}>
-            <i style={{background: s.color}}></i>
-            {s.range} {s.label}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }
 
 function RadarChart({ scorecard }) {
-  const w = 280, h = 280, cx = w/2, cy = h/2, R = 105;
+  const w = 360, h = 360, cx = w/2, cy = h/2, R = 110;
   const N = scorecard.length;
   const angle = (i) => -Math.PI/2 + (i / N) * Math.PI * 2;
   const grids = [0.25, 0.5, 0.75, 1].map(p => {
@@ -154,20 +156,25 @@ function RadarChart({ scorecard }) {
   });
   const path = pts.map((q, i) => (i === 0 ? 'M' : 'L') + q[0] + ',' + q[1]).join(' ') + ' Z';
   return (
-    <svg width={w} height={h} className="chart">
+    <svg width="100%" viewBox={`0 0 ${w} ${h}`} className="chart" style={{maxWidth: w}}>
       {grids.map((g, i) => <path key={i} d={g} fill="none" stroke="#e3ddd1" strokeWidth="1" />)}
       {scorecard.map((_, i) => {
         const [x, y] = [cx + R * Math.cos(angle(i)), cy + R * Math.sin(angle(i))];
         return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#ece7db" strokeWidth="1" />;
       })}
       <path d={path} fill="rgba(184,134,44,.18)" stroke="#b8862c" strokeWidth="2" />
-      {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3.5" fill="#b8862c" />)}
+      {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="#b8862c" />)}
       {scorecard.map((s, i) => {
-        const lr = R + 18;
+        const lr = R + 32;
         const x = cx + lr * Math.cos(angle(i));
         const y = cy + lr * Math.sin(angle(i));
         const anc = Math.abs(Math.cos(angle(i))) < 0.3 ? 'middle' : Math.cos(angle(i)) > 0 ? 'start' : 'end';
-        return <text key={i} x={x} y={y} textAnchor={anc} dy="0.35em" style={{fontSize:11,fill:'#2a3a52',fontWeight:600}}>{s.k}</text>;
+        return (
+          <g key={i}>
+            <text x={x} y={y} textAnchor={anc} dy="-0.2em" style={{fontSize:11,fill:'#2a3a52',fontWeight:600}}>{s.k}</text>
+            <text x={x} y={y} textAnchor={anc} dy="1.1em" style={{fontSize:11,fill:'#b8862c',fontWeight:700,fontFamily:'JetBrains Mono'}}>{Math.round(s.score)}</text>
+          </g>
+        );
       })}
     </svg>
   );
@@ -222,8 +229,20 @@ function VerdictHero({ verdict, CFI, lameba }) {
         </div>
         <div className="score-block">
           <div className="label">Ambang Predikat</div>
-          <div className="val" style={{fontSize:14,fontFamily:'Inter',fontWeight:500,lineHeight:1.4}}>
-            SB: ≥85, ≥8/10<br/>BAIK: ≥70, ≥6/10<br/>PTH: ≥50<br/>BRSK: &lt;50
+          <div className="threshold-grid">
+            {[
+              { label: 'SANGAT BAIK', cfi: '≥ 85', lam: '≥ 8/10', color: '#7ec8e3' },
+              { label: 'BAIK', cfi: '≥ 70', lam: '≥ 6/10', color: '#b8d8b6' },
+              { label: 'PERHATIAN', cfi: '≥ 50', lam: '—', color: '#f0c987' },
+              { label: 'BERISIKO', cfi: '< 50', lam: '—', color: '#f0a3a3' },
+            ].map(t => (
+              <div key={t.label} className="thr-row">
+                <span className="thr-dot" style={{background: t.color}}></span>
+                <span className="thr-label">{t.label}</span>
+                <span className="thr-val mono">{t.cfi}</span>
+                <span className="thr-val mono">{t.lam}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

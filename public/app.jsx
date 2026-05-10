@@ -312,35 +312,38 @@ function OverviewTab({ result, data, onPickRatio }) {
   return (
     <div className="overview-grid">
       {execSummary && (
-        <div className="exec-summary-card" style={{gridColumn:'1/-1'}}>
+        <div className="exec-summary-card span-2">
           <div className="es-eyebrow">Ringkasan Eksekutif</div>
           <p className="es-text">{execSummary}</p>
         </div>
       )}
-      <div className="card">
+      <div className="card span-2">
         <div className="card-h">
           <h3>Indeks Kinerja Keuangan (IKK)</h3>
-          <span className="card-eyebrow">Skala 0 – 4</span>
+          <span className="card-eyebrow">Skala 0 – 4 · Standar LAMEMBA: ≥ 2.5</span>
         </div>
         <window.GaugeIKK value={ikk ? ikk.v : 0} components={result.IKK_components} />
-        <p className="card-note">Komposit RK + REO + RL + GRR. Standar LAMEMBA: ≥ 2.5</p>
       </div>
-      <div className="card">
+      <div className="card span-2">
         <div className="card-h">
           <h3>CFI Scorecard</h3>
-          <span className="card-eyebrow">5 dimensi · skor 0–100</span>
+          <span className="card-eyebrow">5 dimensi · skor 0–100 · Total: <b style={{color:'var(--accent)'}}>{result.CFI_total.toFixed(1)}</b></span>
         </div>
-        <div style={{display:'flex',justifyContent:'center'}}>
-          <window.RadarChart scorecard={result.scorecard} />
-        </div>
-        <div className="cfi-list">
-          {result.scorecard.map(s => (
-            <div key={s.k} className="cfi-row">
-              <span className="cfi-k">{s.k}</span>
-              <span className="cfi-bar"><span style={{width: s.score + '%'}}></span></span>
-              <span className="cfi-v mono">{s.score.toFixed(0)}</span>
+        <div className="cfi-layout">
+          <div className="cfi-radar-wrap">
+            <window.RadarChart scorecard={result.scorecard} />
+          </div>
+          <div className="cfi-bars-wrap">
+            <div className="cfi-list">
+              {result.scorecard.map(s => (
+                <div key={s.k} className="cfi-row">
+                  <span className="cfi-k">{s.k}</span>
+                  <span className="cfi-bar"><span style={{width: s.score + '%'}}></span></span>
+                  <span className="cfi-v mono">{s.score.toFixed(0)}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
       <div className="card span-2">

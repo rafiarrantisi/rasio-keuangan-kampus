@@ -6,17 +6,17 @@ function GaugeIKK({ value, components }) {
   const pct = safeVal / max;
   const W = 360, H = 230;
   const cx = W / 2, cy = 180, r = 120;
-  const startA = Math.PI, endA = 0;
-  const angleAt = (t) => startA + (endA - startA) * t;
   const polar = (radius, t) => {
-    const a = angleAt(t);
-    return [cx + radius * Math.cos(a), cy + radius * Math.sin(a)];
+    const angle = Math.PI * (1 - t);
+    return [
+      cx + radius * Math.cos(angle),
+      cy - radius * Math.sin(angle)
+    ];
   };
   const arcPath = (from, to, radius) => {
     const [x1, y1] = polar(radius, from);
     const [x2, y2] = polar(radius, to);
-    const large = Math.abs(to - from) > 0.5 ? 1 : 0;
-    return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
   };
 
   const segments = [
@@ -125,9 +125,9 @@ function GaugeIKK({ value, components }) {
 }
 
 function RadarChart({ scorecard }) {
-  const R = 100, pad = 90;
-  const w = 2 * (R + pad), h = 2 * (R + pad);
-  const cx = w / 2, cy = h / 2;
+  const R = 100, padL = 110, padR = 90, padTB = 80;
+  const w = padL + R + R + padR, h = padTB + R + R + padTB;
+  const cx = padL + R, cy = h / 2;
   const N = scorecard.length;
   const angle = (i) => -Math.PI/2 + (i / N) * Math.PI * 2;
   const grids = [0.25, 0.5, 0.75, 1].map(p => {

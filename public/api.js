@@ -38,16 +38,26 @@ async function apiGetPreset(id) {
   return apiFetch('GET', '/api/presets/' + encodeURIComponent(id));
 }
 
+// ── Profiles ────────────────────────────────────────────────────────────────
+async function apiGetProfiles() { return apiFetch('GET', '/api/profiles'); }
+async function apiGetProfile(id) { return apiFetch('GET', '/api/profiles/' + encodeURIComponent(id)); }
+async function apiSaveProfile(id, name, data) { return apiFetch('PUT', '/api/profiles/' + encodeURIComponent(id), { name, data }); }
+async function apiDeleteProfile(id) { return apiFetch('DELETE', '/api/profiles/' + encodeURIComponent(id)); }
+
 // ── Health ───────────────────────────────────────────────────────────────────
 async function apiHealth() {
   return apiFetch('GET', '/api/health');
 }
 
 // ── Expose ───────────────────────────────────────────────────────────────────
-window.apiGetState   = apiGetState;
-window.apiSaveState  = apiSaveState;
-window.apiGetPresets = apiGetPresets;
-window.apiGetPreset  = apiGetPreset;
-window.apiHealth     = apiHealth;
+window.apiGetState      = apiGetState;
+window.apiSaveState     = apiSaveState;
+window.apiGetPresets    = apiGetPresets;
+window.apiGetPreset     = apiGetPreset;
+window.apiHealth        = apiHealth;
+window.apiGetProfiles   = apiGetProfiles;
+window.apiGetProfile    = apiGetProfile;
+window.apiSaveProfile   = apiSaveProfile;
+window.apiDeleteProfile = apiDeleteProfile;
 
 })();

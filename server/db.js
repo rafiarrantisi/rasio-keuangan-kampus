@@ -5,9 +5,10 @@
 const path = require('path');
 const fs   = require('fs');
 
-const DATA_DIR     = path.join(__dirname, '..', 'data');
-const STATE_FILE   = path.join(DATA_DIR, 'state.json');
-const PRESETS_FILE = path.join(DATA_DIR, 'presets.json');
+const DATA_DIR      = path.join(__dirname, '..', 'data');
+const STATE_FILE    = path.join(DATA_DIR, 'state.json');
+const PRESETS_FILE  = path.join(DATA_DIR, 'presets.json');
+const PROFILES_FILE = path.join(DATA_DIR, 'profiles.json');
 
 // ── Ensure data/ exists ───────────────────────────────────────────────────────
 function ensureDataDir() {
@@ -95,10 +96,49 @@ function getPreset(id) {
   return presets[id] || null;
 }
 
+// ── Profiles (multi-save) ─────────────────────────────────────────────────────
+function loadProfiles() {
+  ensureDataDir();
+  if (!fs.existsSync(PROFILES_FILE)) return [];
+  try { return JSON.parse(fs.readFileSync(PROFILES_FILE, 'utf8')); }
+  catch { return []; }
+}
+
+function writeProfiles(profiles) {
+  ensureDataDir();
+  fs.writeFileSync(PROFILES_FILE, JSON.stringify(profiles, null, 2), 'utf8');
+}
+
+function getProfiles() {
+  return loadProfiles().map(p => ({ id: p.id, name: p.name, updated_at: p.updated_at }));
+}
+
+function getProfile(id) {
+  return loadProfiles().find(p => p.id === id) || null;
+}
+
+function saveProfile(id, name, data) {
+  const profiles = loadProfiles();
+  const now = new Date().toISOString();
+  const idx = profiles.findIndex(p => p.id === id);
+  if (idx >= 0) {
+    profiles[idx] = { ...profiles[idx], name, data, updated_at: now };
+  } else {
+    profiles.push({ id, name, data, created_at: now, updated_at: now });
+  }
+  writeProfiles(profiles);
+  return now;
+}
+
+function deleteProfile(id) {
+  const profiles = loadProfiles().filter(p => p.id !== id);
+  writeProfiles(profiles);
+}
+
 // ── Init (called on server start) ─────────────────────────────────────────────
 function init() {
   ensureDataDir();
   if (!fs.existsSync(PRESETS_FILE)) seedPresets();
 }
 
-module.exports = { init, getState, saveState, getPresetList, getPreset };
+module.exports = { init, getState, saveState, getPresetList, getPreset, getProfiles, getProfile, saveProfile, deleteProfile };

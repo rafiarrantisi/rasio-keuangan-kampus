@@ -61,6 +61,36 @@ app.get('/api/presets/:id', (req, res) => {
   }
 });
 
+// ── Profiles ──────────────────────────────────────────────────────────────
+app.get('/api/profiles', (req, res) => {
+  try { res.json(db.getProfiles()); }
+  catch (e) { console.error('[GET /api/profiles]', e); res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/profiles/:id', (req, res) => {
+  try {
+    const profile = db.getProfile(req.params.id);
+    if (!profile) return res.status(404).json({ error: 'Profile not found' });
+    res.json(profile);
+  } catch (e) { console.error('[GET /api/profiles/:id]', e); res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/profiles/:id', (req, res) => {
+  try {
+    const { name, data } = req.body;
+    if (!name || !data) return res.status(400).json({ error: 'Missing "name" or "data"' });
+    const updated_at = db.saveProfile(req.params.id, name, data);
+    res.json({ ok: true, updated_at });
+  } catch (e) { console.error('[PUT /api/profiles/:id]', e); res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/profiles/:id', (req, res) => {
+  try {
+    db.deleteProfile(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { console.error('[DELETE /api/profiles/:id]', e); res.status(500).json({ error: e.message }); }
+});
+
 // ── Fallback to index.html (SPA) ───────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

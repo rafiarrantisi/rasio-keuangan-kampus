@@ -27,9 +27,11 @@ function App() {
   const [drawerRatio, setDrawerRatio] = useState(null);
   const [resultTab, setResultTab] = useState('overview');
   const [whatIf, setWhatIf] = useState({ enabled: false, overrides: {} });
-  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'offline'
+  const [saveStatus, setSaveStatus] = useState('idle');
+  const [activeProfile, setActiveProfile] = useState(null); // { id, name }
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const saveTimer  = useRef(null);
-  // null = unknown, true = backend reachable, false = no backend (static/Vercel)
   const backendRef = useRef(null);
 
   // On mount: probe /api/health first, then restore state if backend is up
@@ -80,6 +82,34 @@ function App() {
     setData(d => ({ ...d, TS: { ...d.TS, ...d[fromYr] } }));
   };
 
+  const handleSaveProfile = (name) => {
+    const id = activeProfile?.id || 'prof_' + Date.now();
+    const profileName = name || activeProfile?.name || 'Profil Baru';
+    window.apiSaveProfile(id, profileName, data)
+      .then(() => {
+        setActiveProfile({ id, name: profileName });
+        setShowSaveDialog(false);
+        setSaveStatus('saved');
+      })
+      .catch(() => setSaveStatus('offline'));
+  };
+
+  const handleLoadProfile = (profile) => {
+    window.apiGetProfile(profile.id)
+      .then(p => {
+        setData(p.data);
+        setActiveProfile({ id: p.id, name: p.name });
+        setShowProfileModal(false);
+        setStep(1);
+      })
+      .catch(() => {});
+  };
+
+  const handleDeleteProfile = (id) => {
+    window.apiDeleteProfile(id).catch(() => {});
+    if (activeProfile?.id === id) setActiveProfile(null);
+  };
+
   // Apply what-if overrides on top of data
   const effectiveData = useMemo(() => {
     if (!whatIf.enabled) return data;
@@ -90,7 +120,9 @@ function App() {
 
   return (
     <div className={'app density-' + tweak.density} style={{'--accent': tweak.accentColor}}>
-      <Header step={step} onStep={setStep} onReset={reset} onTweaks={() => setTweaksOpen(true)} saveStatus={saveStatus} />
+      <Header step={step} onStep={setStep} onReset={reset} onTweaks={() => setTweaksOpen(true)} saveStatus={saveStatus}
+              activeProfile={activeProfile} onSave={() => activeProfile ? handleSaveProfile() : setShowSaveDialog(true)}
+              onSaveAs={() => setShowSaveDialog(true)} onLoad={() => setShowProfileModal(true)} />
       <Sidebar step={step} onStep={setStep} result={result} hasData={hasAnyData(data)} />
       <main className="main">
         {step === 0 && <StepStart onPreset={loadPreset} onBlank={() => { reset(); setStep(1); }} />}
@@ -106,6 +138,8 @@ function App() {
         {step !== 0 && <StepNav step={step} onStep={setStep} onCopyTS1={() => copyToTS('TS-1')} />}
       </main>
       <window.RatioDrawer ratio={drawerRatio} onClose={() => setDrawerRatio(null)} />
+      {showSaveDialog && <SaveDialog onSave={handleSaveProfile} onClose={() => setShowSaveDialog(false)} defaultName={activeProfile?.name || ''} />}
+      {showProfileModal && <ProfileModal onLoad={handleLoadProfile} onDelete={handleDeleteProfile} onClose={() => setShowProfileModal(false)} />}
       {tweaksOpen && <TweaksPanel title="Tweaks" onClose={() => setTweaksOpen(false)}>
         <TweakSection title="Tampilan">
           <TweakRadio label="Density" value={tweak.density} onChange={v => setTweak('density', v)}
@@ -127,21 +161,26 @@ function hasAnyData(d) {
   return Object.values(d.TS).some(v => v && v !== 0);
 }
 
-function Header({ step, onStep, onReset, onTweaks, saveStatus }) {
+function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onLoad }) {
   return (
     <header className="topbar">
       <div className="brand">
         <div className="logo-mark">RK</div>
         <div>
           <div className="brand-name">Rasio Keuangan Kampus</div>
-          <div className="brand-sub">Simulator LAMEMBA · Composite Financial Index</div>
+          <div className="brand-sub">
+            {activeProfile ? activeProfile.name : 'Simulator LAMEMBA · Composite Financial Index'}
+          </div>
         </div>
       </div>
       <div className="topbar-actions">
         <span className="step-pill">Langkah {step + 1} / 8</span>
-        {saveStatus === 'saving'  && <span className="save-status saving">⟳ Menyimpan…</span>}
-        {saveStatus === 'saved'   && <span className="save-status saved">✓ Tersimpan</span>}
-        {saveStatus === 'offline' && <span className="save-status offline" title="Server tidak tersedia — data disimpan lokal">⚠ Offline</span>}
+        {saveStatus === 'saving'  && <span className="save-status saving">Menyimpan…</span>}
+        {saveStatus === 'saved'   && <span className="save-status saved">Tersimpan</span>}
+        {saveStatus === 'offline' && <span className="save-status offline" title="Server tidak tersedia — data disimpan lokal">Offline</span>}
+        <button className="btn-ghost" onClick={onLoad}>Muat Profil</button>
+        <button className="btn-ghost" onClick={onSave}>Simpan</button>
+        <button className="btn-ghost" onClick={onSaveAs}>Simpan Sebagai…</button>
         <button className="btn-ghost" onClick={onReset}>Reset Data</button>
       </div>
     </header>
@@ -234,6 +273,7 @@ function ResultPage({ result, data, tab, setTab, whatIf, setWhatIf, onPickRatio,
     { id: 'ratios', label: 'Semua Rasio (29)' },
     { id: 'composition', label: 'Komposisi' },
     { id: 'compare', label: 'Benchmark' },
+    { id: 'historical', label: 'Historis' },
     { id: 'whatif', label: 'What-If' },
     { id: 'recs', label: 'Rekomendasi' },
   ];
@@ -258,6 +298,7 @@ function ResultPage({ result, data, tab, setTab, whatIf, setWhatIf, onPickRatio,
         {tab === 'ratios' && <RatiosTab result={result} onPickRatio={onPickRatio} />}
         {tab === 'composition' && <CompositionTab data={data} result={result} />}
         {tab === 'compare' && <CompareTab result={result} />}
+        {tab === 'historical' && <HistoricalTab result={result} onPickRatio={onPickRatio} />}
         {tab === 'whatif' && <WhatIfTab data={data} whatIf={whatIf} setWhatIf={setWhatIf} result={result} />}
         {tab === 'recs' && (showRecs ? <RecsTab result={result} data={data} /> : <div className="empty">Rekomendasi dinonaktifkan dari panel Tweaks.</div>)}
       </div>
@@ -752,5 +793,145 @@ function RecsTab({ result, data }) {
     </div>
   );
 }
+
+// =============== SAVE DIALOG ===============
+function SaveDialog({ onSave, onClose, defaultName }) {
+  const [name, setName] = useState(defaultName || '');
+  const handleSubmit = (e) => { e.preventDefault(); if (name.trim()) onSave(name.trim()); };
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Simpan Profil</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <label className="modal-label">Nama Profil</label>
+          <input className="modal-input" type="text" value={name} onChange={e => setName(e.target.value)}
+                 placeholder="cth: Universitas ABC 2024" autoFocus />
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Batal</button>
+            <button type="submit" className="btn-primary" disabled={!name.trim()}>Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// =============== PROFILE MODAL ===============
+function ProfileModal({ onLoad, onDelete, onClose }) {
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    window.apiGetProfiles()
+      .then(p => { setProfiles(p); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const handleDelete = (id) => {
+    onDelete(id);
+    setProfiles(ps => ps.filter(p => p.id !== id));
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box modal-wide" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Muat Profil Tersimpan</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        {loading ? <div className="modal-loading">Memuat…</div> : profiles.length === 0 ? (
+          <div className="modal-empty">Belum ada profil tersimpan. Gunakan "Simpan Sebagai…" untuk menyimpan data Anda.</div>
+        ) : (
+          <div className="profile-list">
+            {profiles.map(p => (
+              <div key={p.id} className="profile-item">
+                <div className="profile-info" onClick={() => onLoad(p)}>
+                  <div className="profile-name">{p.name}</div>
+                  <div className="profile-date">{new Date(p.updated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <button className="btn-ghost btn-sm btn-danger" onClick={() => handleDelete(p.id)}>Hapus</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =============== HISTORICAL TAB ===============
+function HistoricalTab({ result, onPickRatio }) {
+  const CAT_LABELS = { CFI: 'Kekuatan Finansial', LIQ: 'Likuiditas', EFF: 'Efisiensi', DEBT: 'Utang', ENDOW: 'Endowment', REV: 'Pendapatan', ACAD: 'Akademik', BUDGET: 'Anggaran', INVEST: 'Investasi', IKK: 'IKK', ATT: 'Tridharma' };
+  const grouped = {};
+  result.ratios.forEach(r => {
+    if (r.v1 === undefined && r.v2 === undefined) return;
+    (grouped[r.cat] = grouped[r.cat] || []).push(r);
+  });
+
+  function trendArrow(v, v1, good) {
+    if (v === undefined || v1 === undefined || v === null || v1 === null) return '';
+    const diff = v - v1;
+    if (Math.abs(diff) < 0.0001) return '→';
+    const up = diff > 0;
+    const positive = good === 'high' ? up : good === 'low' ? !up : null;
+    if (positive === true) return '↑';
+    if (positive === false) return '↓';
+    return up ? '↑' : '↓';
+  }
+
+  function trendColor(v, v1, good) {
+    if (v === undefined || v1 === undefined) return '#5b6a82';
+    const diff = v - v1;
+    if (Math.abs(diff) < 0.0001) return '#5b6a82';
+    const up = diff > 0;
+    const positive = good === 'high' ? up : good === 'low' ? !up : null;
+    if (positive === true) return '#2f6b3d';
+    if (positive === false) return '#9b2c2c';
+    return '#5b6a82';
+  }
+
+  return (
+    <div>
+      <div className="section-eyebrow">Data Historis 3 Tahun</div>
+      <p className="section-desc">Perbandingan semua rasio dari TS-2 hingga TS. Warna hijau = membaik, merah = memburuk.</p>
+      {Object.entries(grouped).map(([cat, items]) => (
+        <div key={cat} style={{marginBottom: 24}}>
+          <div className="hist-cat-title">{CAT_LABELS[cat] || cat}</div>
+          <table className="hist-table">
+            <thead>
+              <tr><th>Rasio</th><th>TS-2</th><th>TS-1</th><th>TS</th><th>Trend</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {items.map(r => (
+                <tr key={r.id} className="hist-row" onClick={() => onPickRatio && onPickRatio(r)} style={{cursor:'pointer'}}>
+                  <td>
+                    {r.lameba && <span className="lam-badge">★</span>}
+                    {r.name}
+                  </td>
+                  <td className="mono">{r.v2 !== undefined ? window.fmtByType(r.v2, r.format) : '—'}</td>
+                  <td className="mono">{r.v1 !== undefined ? window.fmtByType(r.v1, r.format) : '—'}</td>
+                  <td className="mono"><b>{window.fmtByType(r.v, r.format)}</b></td>
+                  <td style={{textAlign:'center'}}>
+                    <span style={{color: trendColor(r.v, r.v1, r.good), fontWeight: 600, fontSize: 16}}>
+                      {trendArrow(r.v, r.v1, r.good)}
+                    </span>
+                    {r.v1 !== undefined && r.v2 !== undefined && (
+                      <span style={{marginLeft: 6}}><window.Sparkline data={[r.v2, r.v1, r.v]} w={60} h={20} color={trendColor(r.v, r.v1, r.good)} /></span>
+                    )}
+                  </td>
+                  <td><window.StatusPill s={r.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  );
+}
+window.HistoricalTab = HistoricalTab;
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

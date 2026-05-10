@@ -1,0 +1,16 @@
+{
+  "name": "web-rasio-keuangan-kampus",
+  "version": "0.1.0",
+  "description": "Simulator Rasio Keuangan Universitas (LAMEMBA) — interactive calculator for 29 financial ratios + 10 LAMEMBA indicators with verdict classification.",
+  "private": true,
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

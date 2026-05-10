@@ -516,7 +516,7 @@ svg.chart { display: block; }
 /* === Gauge IKK === */
 .gauge-wrap { text-align: center; padding: 8px 0 4px; }
 .gauge-horizontal { display: flex; gap: 24px; align-items: flex-start; text-align: left; }
-.gauge-left { flex: 0 0 auto; text-align: center; max-width: 320px; }
+.gauge-left { flex: 0 0 auto; text-align: center; max-width: 380px; }
 .gauge-wrap .chart { display: block; margin: 0 auto; }
 .gauge-status {
   display: inline-block; margin-top: -6px;

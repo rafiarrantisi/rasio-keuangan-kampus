@@ -4,9 +4,9 @@ function GaugeIKK({ value, components }) {
   const max = 4;
   const safeVal = Math.min(max, Math.max(0, value || 0));
   const pct = safeVal / max;
-  const W = 300, H = 195;
-  const cx = W / 2, cy = 148, r = 100;
-  const startA = Math.PI, endA = 0; // 180° → 0°
+  const W = 360, H = 230;
+  const cx = W / 2, cy = 180, r = 120;
+  const startA = Math.PI, endA = 0;
   const angleAt = (t) => startA + (endA - startA) * t;
   const polar = (radius, t) => {
     const a = angleAt(t);
@@ -19,7 +19,6 @@ function GaugeIKK({ value, components }) {
     return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
   };
 
-  // IKK zones: 0–1.5 Berisiko, 1.5–2.5 Perhatian, 2.5–3.5 Baik, 3.5–4 Sangat Baik
   const segments = [
     { from: 0,       to: 1.5/4,  color: '#9b2c2c', label: 'Berisiko',    range: '0 – 1.5' },
     { from: 1.5/4,   to: 2.5/4,  color: '#c07928', label: 'Perhatian',   range: '1.5 – 2.5' },
@@ -32,74 +31,57 @@ function GaugeIKK({ value, components }) {
     safeVal >= 1.5 ? { label: 'PERHATIAN',   color: '#c07928' } :
                      { label: 'BERISIKO',    color: '#9b2c2c' };
 
-  // Needle tip position
-  const [nx, ny] = polar(r - 8, pct);
-
-  // Threshold markers at 1.5, 2.5, 3.5
-  const thresholds = [
-    { val: 1.5, label: '1.5', color: '#c07928', important: false },
-    { val: 2.5, label: 'Min L8', color: '#142847', important: true },
-    { val: 3.5, label: '3.5', color: '#1e6fb8', important: false },
-  ];
+  const [nx, ny] = polar(r - 12, pct);
 
   return (
     <div className="gauge-wrap gauge-horizontal">
       <div className="gauge-left">
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="chart" style={{maxWidth: W}}>
-        {/* Track background */}
-        <path d={arcPath(0, 1, r)} fill="none" stroke="#ece7db" strokeWidth="16" strokeLinecap="butt" />
-        {/* Colored segments */}
+        <path d={arcPath(0, 1, r)} fill="none" stroke="#ece7db" strokeWidth="18" strokeLinecap="butt" />
         {segments.map((s, i) => (
-          <path key={i} d={arcPath(s.from, s.to, r)} fill="none" stroke={s.color} strokeWidth="16" strokeLinecap="butt" />
+          <path key={i} d={arcPath(s.from, s.to, r)} fill="none" stroke={s.color} strokeWidth="18" strokeLinecap="butt" />
         ))}
-        {/* Tick marks + labels at 0,1,2,3,4 */}
         {[0, 1, 2, 3, 4].map(t => {
-          const [tx, ty] = polar(r + 20, t / 4);
+          const [tx, ty] = polar(r + 26, t / 4);
           return (
             <text key={t} x={tx} y={ty} textAnchor="middle" dy="0.35em"
-              style={{fontSize:11, fill:'#5b6a82', fontWeight:700, fontFamily:'JetBrains Mono'}}>
+              style={{fontSize:12, fill:'#5b6a82', fontWeight:700, fontFamily:'JetBrains Mono'}}>
               {t}
             </text>
           );
         })}
-        {/* Threshold markers */}
-        {thresholds.map(thr => {
-          const t = thr.val / 4;
-          const [mx1, my1] = polar(r - 18, t);
-          const [mx2, my2] = polar(r + 6, t);
-          const [lx, ly] = polar(r + 34, t);
+        {/* Min L8 marker at 2.5 */}
+        {(() => {
+          const t = 2.5 / 4;
+          const [mx1, my1] = polar(r - 20, t);
+          const [mx2, my2] = polar(r + 8, t);
+          const [lx, ly] = polar(r + 42, t);
           return (
-            <g key={thr.val}>
-              <line x1={mx1} y1={my1} x2={mx2} y2={my2}
-                stroke={thr.color} strokeWidth={thr.important ? 2.5 : 1.5}
-                strokeDasharray={thr.important ? '4 3' : '2 3'} />
-              {thr.important && (
-                <text x={lx} y={ly} textAnchor="middle" dy="0.35em"
-                  style={{fontSize:9, fill: thr.color, fontWeight:700, letterSpacing:'.03em'}}>
-                  {thr.label}
-                </text>
-              )}
+            <g>
+              <line x1={mx1} y1={my1} x2={mx2} y2={my2} stroke="#142847" strokeWidth="2.5" strokeDasharray="4 3" />
+              <text x={lx} y={ly} textAnchor="middle" dy="0.35em"
+                style={{fontSize:10, fill:'#142847', fontWeight:700, letterSpacing:'.03em'}}>Min L8</text>
             </g>
           );
-        })}
+        })()}
         {/* Needle */}
         <line x1={cx} y1={cy} x2={nx} y2={ny}
-          stroke="#142847" strokeWidth="3.5" strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r="10" fill="#142847" />
-        <circle cx={cx} cy={cy} r="4.5" fill="#fff" />
+          stroke="#142847" strokeWidth="3" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r="8" fill="#142847" />
+        <circle cx={cx} cy={cy} r="3.5" fill="#fff" />
         {/* Center value */}
-        <text x={cx} y={cy - 40} textAnchor="middle"
-          style={{fontFamily:'Plus Jakarta Sans', fontWeight:800, fontSize:36, fill:'#142847', letterSpacing:'-0.02em'}}>
+        <text x={cx} y={cy - 48} textAnchor="middle"
+          style={{fontFamily:'Plus Jakarta Sans', fontWeight:800, fontSize:38, fill:'#142847', letterSpacing:'-0.02em'}}>
           {safeVal.toFixed(2)}
         </text>
-        <text x={cx} y={cy - 20} textAnchor="middle"
-          style={{fontSize:10, fill:'#8a96aa', letterSpacing:'.1em', fontWeight:600}}>
+        <text x={cx} y={cy - 26} textAnchor="middle"
+          style={{fontSize:11, fill:'#8a96aa', letterSpacing:'.1em', fontWeight:600}}>
           dari 4.00
         </text>
-        {/* Status badge (top-right inside SVG) */}
-        <rect x={W - 92} y={6} width={86} height={22} rx="4" fill={status.color} opacity="0.12" />
-        <text x={W - 49} y={21} textAnchor="middle"
-          style={{fontSize:9, fill: status.color, fontWeight:800, letterSpacing:'.06em'}}>
+        {/* Status badge */}
+        <rect x={W - 100} y={8} width={90} height={24} rx="5" fill={status.color} opacity="0.12" />
+        <text x={W - 55} y={24} textAnchor="middle"
+          style={{fontSize:10, fill: status.color, fontWeight:800, letterSpacing:'.06em'}}>
           {status.label}
         </text>
       </svg>
@@ -143,7 +125,9 @@ function GaugeIKK({ value, components }) {
 }
 
 function RadarChart({ scorecard }) {
-  const w = 360, h = 360, cx = w/2, cy = h/2, R = 110;
+  const R = 100, pad = 90;
+  const w = 2 * (R + pad), h = 2 * (R + pad);
+  const cx = w / 2, cy = h / 2;
   const N = scorecard.length;
   const angle = (i) => -Math.PI/2 + (i / N) * Math.PI * 2;
   const grids = [0.25, 0.5, 0.75, 1].map(p => {
@@ -156,7 +140,7 @@ function RadarChart({ scorecard }) {
   });
   const path = pts.map((q, i) => (i === 0 ? 'M' : 'L') + q[0] + ',' + q[1]).join(' ') + ' Z';
   return (
-    <svg width="100%" viewBox={`0 0 ${w} ${h}`} className="chart" style={{maxWidth: w}}>
+    <svg width="100%" viewBox={`0 0 ${w} ${h}`} className="chart" style={{maxWidth: 380}}>
       {grids.map((g, i) => <path key={i} d={g} fill="none" stroke="#e3ddd1" strokeWidth="1" />)}
       {scorecard.map((_, i) => {
         const [x, y] = [cx + R * Math.cos(angle(i)), cy + R * Math.sin(angle(i))];
@@ -165,14 +149,14 @@ function RadarChart({ scorecard }) {
       <path d={path} fill="rgba(184,134,44,.18)" stroke="#b8862c" strokeWidth="2" />
       {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill="#b8862c" />)}
       {scorecard.map((s, i) => {
-        const lr = R + 32;
+        const lr = R + 24;
         const x = cx + lr * Math.cos(angle(i));
         const y = cy + lr * Math.sin(angle(i));
         const anc = Math.abs(Math.cos(angle(i))) < 0.3 ? 'middle' : Math.cos(angle(i)) > 0 ? 'start' : 'end';
         return (
           <g key={i}>
-            <text x={x} y={y} textAnchor={anc} dy="-0.2em" style={{fontSize:11,fill:'#2a3a52',fontWeight:600}}>{s.k}</text>
-            <text x={x} y={y} textAnchor={anc} dy="1.1em" style={{fontSize:11,fill:'#b8862c',fontWeight:700,fontFamily:'JetBrains Mono'}}>{Math.round(s.score)}</text>
+            <text x={x} y={y} textAnchor={anc} dy="-0.2em" style={{fontSize:10,fill:'#2a3a52',fontWeight:600}}>{s.k}</text>
+            <text x={x} y={y} textAnchor={anc} dy="1.1em" style={{fontSize:10,fill:'#b8862c',fontWeight:700,fontFamily:'JetBrains Mono'}}>{Math.round(s.score)}</text>
           </g>
         );
       })}

@@ -1,4 +1,125 @@
 // Landing page — first impression before user enters the simulator
+
+// ═══════════════════════════════════════════════════════════════
+// Decorative SVG library — used as background ornaments per section
+// All decorations: position:absolute, pointer-events:none, aria-hidden
+// ═══════════════════════════════════════════════════════════════
+
+function BlueprintGrid({ style }) {
+  return (
+    <svg className="decor-svg" viewBox="0 0 600 600" aria-hidden="true" style={style}>
+      <defs>
+        <pattern id="bp-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(15)">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
+        </pattern>
+        <linearGradient id="bp-fade" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="white" stopOpacity="1" />
+          <stop offset="100%" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+        <mask id="bp-mask">
+          <rect width="600" height="600" fill="url(#bp-fade)" />
+        </mask>
+      </defs>
+      <rect width="600" height="600" fill="url(#bp-grid)" mask="url(#bp-mask)" />
+    </svg>
+  );
+}
+
+function AscendingBars({ style }) {
+  return (
+    <svg className="decor-svg" viewBox="0 0 320 200" aria-hidden="true" style={style}>
+      <g fill="#b8862c">
+        <rect x="0"   y="160" width="32" height="40"  rx="4" opacity="0.3" />
+        <rect x="48"  y="130" width="32" height="70"  rx="4" opacity="0.45" />
+        <rect x="96"  y="100" width="32" height="100" rx="4" opacity="0.55" />
+        <rect x="144" y="70"  width="32" height="130" rx="4" opacity="0.7" />
+        <rect x="192" y="40"  width="32" height="160" rx="4" opacity="0.85" />
+        <rect x="240" y="10"  width="32" height="190" rx="4" opacity="1" />
+      </g>
+    </svg>
+  );
+}
+
+function ConcentricRings({ style }) {
+  return (
+    <svg className="decor-svg" viewBox="0 0 480 480" aria-hidden="true" style={style}>
+      <g fill="none" strokeWidth="1.5">
+        <circle cx="240" cy="240" r="60"  stroke="rgba(255,255,255,0.3)" />
+        <circle cx="240" cy="240" r="120" stroke="rgba(255,255,255,0.22)" />
+        <circle cx="240" cy="240" r="180" stroke="rgba(184,134,44,0.5)" strokeDasharray="4 6" />
+        <circle cx="240" cy="240" r="220" stroke="rgba(255,255,255,0.14)" />
+      </g>
+      <circle cx="240" cy="240" r="6" fill="#b8862c" />
+    </svg>
+  );
+}
+
+function ConnectingDots({ style }) {
+  return (
+    <svg className="decor-svg" viewBox="0 0 1200 100" preserveAspectRatio="none" aria-hidden="true" style={style}>
+      <path d="M 50 50 Q 300 10, 600 50 T 1150 50" fill="none" stroke="rgba(184,134,44,0.6)" strokeWidth="1.5" strokeDasharray="3 8" />
+      <g fill="#b8862c">
+        <circle cx="50" cy="50" r="4" />
+        <circle cx="400" cy="32" r="4" />
+        <circle cx="800" cy="48" r="4" />
+        <circle cx="1150" cy="50" r="4" />
+      </g>
+    </svg>
+  );
+}
+
+function BuildingSilhouette({ style }) {
+  return (
+    <svg className="decor-svg" viewBox="0 0 240 320" aria-hidden="true" style={style}>
+      <g fill="rgba(255,255,255,0.55)">
+        {/* Roof / pediment */}
+        <polygon points="20,90 120,30 220,90" />
+        <rect x="14" y="88" width="212" height="14" />
+        {/* Columns */}
+        <rect x="30"  y="108" width="20" height="170" />
+        <rect x="68"  y="108" width="20" height="170" />
+        <rect x="106" y="108" width="20" height="170" />
+        <rect x="144" y="108" width="20" height="170" />
+        <rect x="182" y="108" width="20" height="170" />
+        {/* Steps */}
+        <rect x="10"  y="284" width="220" height="8" />
+        <rect x="0"   y="296" width="240" height="10" />
+      </g>
+    </svg>
+  );
+}
+
+function HexMesh({ style }) {
+  return (
+    <svg className="decor-svg" viewBox="0 0 600 600" aria-hidden="true" style={style}>
+      <defs>
+        <pattern id="hex-p" x="0" y="0" width="60" height="52" patternUnits="userSpaceOnUse">
+          <polygon points="30,2 56,17 56,47 30,62 4,47 4,17" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.8" />
+        </pattern>
+      </defs>
+      <rect width="600" height="600" fill="url(#hex-p)" />
+    </svg>
+  );
+}
+
+function GoldOrb({ style, size = 600 }) {
+  return (
+    <div
+      className="decor-orb"
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        width: size, height: size,
+        background: 'radial-gradient(closest-side, rgba(184,134,44,0.28), rgba(184,134,44,0.08) 40%, transparent 70%)',
+        borderRadius: '50%',
+        pointerEvents: 'none',
+        filter: 'blur(8px)',
+        ...style,
+      }}
+    />
+  );
+}
+
 function Landing({ onStart, onDemo }) {
   return (
     <div className="landing">
@@ -65,6 +186,8 @@ function HeroSection({ onStart, onDemo }) {
   return (
     <header className="landing-hero" ref={heroRef}>
       <div className="landing-hero-bg" aria-hidden="true"></div>
+      <div className="landing-hero-glow" aria-hidden="true"></div>
+      <BuildingSilhouette style={{ position: 'absolute', left: '-40px', bottom: '-40px', width: '260px', opacity: 0.04, zIndex: 0 }} />
       <div className="landing-hero-inner">
         <div className="landing-hero-text">
           <div className="landing-eyebrow" data-reveal>
@@ -129,7 +252,9 @@ function HeroSection({ onStart, onDemo }) {
 function StatStrip() {
   return (
     <section className="landing-stats" aria-label="Cakupan analisis">
-      <div className="landing-container">
+      <BlueprintGrid style={{ position: 'absolute', bottom: '-60px', left: '-80px', width: '520px', opacity: 0.05, zIndex: 0 }} />
+      <AscendingBars style={{ position: 'absolute', right: '-20px', top: '-20px', width: '240px', opacity: 0.06, zIndex: 0 }} />
+      <div className="landing-container" style={{ position: 'relative', zIndex: 1 }}>
         <div className="stat-grid">
           <StatItem to={29} suffix="" label="Rasio Keuangan" sub="dari NACUBO + best practice PT" icon="bar-chart-3" />
           <StatItem to={10} suffix="" label="Indikator LAMEMBA" sub="wajib untuk akreditasi" icon="list-checks" />
@@ -199,7 +324,9 @@ function HowItWorks() {
   ];
   return (
     <section className="landing-section landing-howitworks" id="cara-kerja">
-      <div className="landing-container">
+      <ConnectingDots style={{ position: 'absolute', top: '38%', left: 0, right: 0, height: '80px', opacity: 0.18, zIndex: 0 }} />
+      <GoldOrb style={{ left: '-200px', top: '20%' }} size={500} />
+      <div className="landing-container" style={{ position: 'relative', zIndex: 1 }}>
         <div className="section-head">
           <div className="section-eyebrow">Cara Kerja</div>
           <h2 className="section-h2">Dari laporan keuangan ke predikat akreditasi, dalam 4 langkah.</h2>
@@ -230,8 +357,10 @@ function FeatureGrid() {
     { icon: 'folder-open', title: 'Profil Multi-Kampus', body: 'Simpan beberapa profil untuk satu kampus (atau multi-kampus), load kapan saja.' },
   ];
   return (
-    <section className="landing-section">
-      <div className="landing-container">
+    <section className="landing-section landing-features">
+      <HexMesh style={{ position: 'absolute', inset: 0, opacity: 0.05, zIndex: 0 }} />
+      <GoldOrb style={{ right: '-220px', bottom: '-160px' }} size={620} />
+      <div className="landing-container" style={{ position: 'relative', zIndex: 1 }}>
         <div className="section-head">
           <div className="section-eyebrow">Fitur Lengkap</div>
           <h2 className="section-h2">Toolkit analisis keuangan yang sebenarnya dipakai.</h2>
@@ -253,7 +382,9 @@ function FeatureGrid() {
 function MethodologyCard() {
   return (
     <section className="landing-section landing-method" id="metodologi">
-      <div className="landing-container">
+      <ConcentricRings style={{ position: 'absolute', right: '-180px', top: '50%', transform: 'translateY(-50%)', width: '560px', opacity: 0.08, zIndex: 0 }} />
+      <BuildingSilhouette style={{ position: 'absolute', left: '-80px', bottom: '-30px', width: '220px', opacity: 0.05, zIndex: 0 }} />
+      <div className="landing-container" style={{ position: 'relative', zIndex: 1 }}>
         <RevealCard className="method-card">
           <div className="method-grid">
             <div className="method-left">

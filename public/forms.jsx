@@ -1,4 +1,41 @@
 // Input forms for each wizard step
+
+// === FormPageHeader — large unified header for all 6 step forms ===
+function FormPageHeader({ letter, title, subtitle, completion }) {
+  return (
+    <div className="form-page-header">
+      <div className="fph-row">
+        <span className="fph-badge">{letter}</span>
+        <div className="fph-text">
+          <h2 className="fph-title">{title}</h2>
+          {subtitle && <p className="fph-subtitle">{subtitle}</p>}
+        </div>
+        {completion && (
+          <div className="fph-completion" title={completion.filled + ' dari ' + completion.total + ' field terisi'}>
+            <div className="fph-comp-bar">
+              <div className="fph-comp-bar-fill" style={{width: (completion.filled / completion.total * 100) + '%'}}></div>
+            </div>
+            <span className="fph-comp-label">{completion.filled}/{completion.total} terisi</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// === FormTip — callout style for tip / hint blocks ===
+function FormTip({ children, variant = 'gold' }) {
+  return (
+    <div className={'form-tip form-tip-' + variant}>
+      <window.Icon name="info" size={14} />
+      <div>{children}</div>
+    </div>
+  );
+}
+
+window.FormPageHeader = FormPageHeader;
+window.FormTip = FormTip;
+
 function CurrencyInput({ value, onChange, warn, allowNegative }) {
   const [str, setStr] = React.useState('');
   React.useEffect(() => {
@@ -76,10 +113,15 @@ function StepRev({ data, onChange }) {
   ];
   const netTuition = (d) => (d.revSppGross || 0) + (d.revBeasiswa || 0);
   const totalRev = (d) => fields.reduce((s, f) => s + (d[f.k] || 0), 0);
+  const filled = fields.filter(f => data.TS && data.TS[f.k]).length;
   return (
-    <div className="card">
-      <div className="card-section-title"><span className="num">A.</span><h3>Data Pendapatan</h3></div>
-      <p className="card-sub">Sumber pendapatan institusi untuk 3 tahun. Beasiswa diisi sebagai nilai negatif (pengurang).</p>
+    <div className="form-page-card">
+      <FormPageHeader
+        letter="A"
+        title="Pendapatan Institusi"
+        subtitle="Sumber pendapatan untuk 3 tahun terakhir (TS, TS−1, TS−2). Beasiswa diisi sebagai nilai negatif untuk dipotong dari SPP Gross."
+        completion={{ filled, total: fields.length }}
+      />
       <div className="field-grid">
         <FormHeader />
         {fields.map(f => (
@@ -90,9 +132,9 @@ function StepRev({ data, onChange }) {
         <FieldRow k="netTuition" label="→ Net Tuition (SPP − Beasiswa)" data={data} onChange={() => {}} derived derivedFn={netTuition} />
         <FieldRow k="totalRev" label="→ TOTAL PENDAPATAN" data={data} onChange={() => {}} derived derivedFn={totalRev} />
       </div>
-      <div className="note">
+      <FormTip>
         <strong>Tip:</strong> Klik tombol <b>±</b> di sisi kanan input untuk mengganti tanda. Beasiswa harus negatif agar dipotong dari SPP Gross.
-      </div>
+      </FormTip>
     </div>
   );
 }
@@ -112,10 +154,15 @@ function StepExp({ data, onChange }) {
     { k: 'expInstr', label: '[INFO] Biaya Instruksi/Pengajaran (subset Ops)', info: 'INFO SAJA — sudah termasuk dalam Biaya Ops Langsung. Tidak dijumlahkan ulang.' },
   ];
   const totalExp = (d) => (d.expOps||0)+(d.expAdmin||0)+(d.expSDM||0)+(d.expCapex||0)+(d.expMaint||0)+(d.expFaculty||0)+(d.expDepr||0)+(d.expInterest||0)+(d.expLain||0);
+  const filled = fields.filter(f => data.TS && data.TS[f.k]).length;
   return (
-    <div className="card">
-      <div className="card-section-title"><span className="num">B.</span><h3>Data Pengeluaran</h3></div>
-      <p className="card-sub">Komponen biaya operasional. Biaya Instruksi adalah info — sudah termasuk dalam Biaya Operasional Langsung.</p>
+    <div className="form-page-card">
+      <FormPageHeader
+        letter="B"
+        title="Pengeluaran Institusi"
+        subtitle="Komponen biaya operasional. Biaya Instruksi adalah info-only — sudah termasuk dalam Biaya Operasional Langsung, tidak dijumlahkan ulang."
+        completion={{ filled, total: fields.length }}
+      />
       <div className="field-grid">
         <FormHeader />
         {fields.map(f => (
@@ -123,6 +170,9 @@ function StepExp({ data, onChange }) {
         ))}
         <FieldRow k="totalExp" label="→ TOTAL PENGELUARAN" data={data} onChange={() => {}} derived derivedFn={totalExp} />
       </div>
+      <FormTip>
+        Target rasio LAMEMBA: <b>REO ≥ 65%</b> (Biaya Ops Langsung / Total Pengeluaran), <b>RISDM ≥ 15%</b> (SDM/Total), <b>RISP ≥ 20%</b> (CapEx + Maintenance / Total).
+      </FormTip>
     </div>
   );
 }
@@ -156,13 +206,19 @@ function StepBS({ data, onChange }) {
   const lancarSum = (d) => lancar.reduce((s, f) => s + (d[f.k] || 0), 0);
   const totalAset = (d) => lancarSum(d) + (d.bsAsetTetap || 0) + (d.bsEndowment || 0);
   const renderGroup = (title, items) => (<>
-    <div style={{gridColumn:'1/-1', padding:'12px 4px 4px', fontSize:11, textTransform:'uppercase', letterSpacing:'.08em', color:'#8a96aa', fontWeight:600}}>{title}</div>
+    <div className="field-grid-group-divider">{title}</div>
     {items.map(f => <FieldRow key={f.k} k={f.k} label={f.label} info={f.info} data={data} onChange={onChange} />)}
   </>);
+  const allFields = [...lancar, ...tetap, ...kwj, ...eq, ...liq];
+  const filled = allFields.filter(f => data.TS && data.TS[f.k]).length;
   return (
-    <div className="card">
-      <div className="card-section-title"><span className="num">C.</span><h3>Data Neraca Keuangan</h3></div>
-      <p className="card-sub">Posisi neraca untuk 3 tahun. Termasuk komponen liquidity & debt service untuk perhitungan DSCR.</p>
+    <div className="form-page-card">
+      <FormPageHeader
+        letter="C"
+        title="Neraca Keuangan"
+        subtitle="Posisi aset, kewajiban, dan ekuitas untuk 3 tahun. Komponen liquidity & debt service dipakai untuk perhitungan DSCR (LAMEMBA L7)."
+        completion={{ filled, total: allFields.length }}
+      />
       <div className="field-grid">
         <FormHeader />
         {renderGroup('Aset Lancar', lancar)}
@@ -228,13 +284,14 @@ function StepBudget({ data, onChange }) {
   const varOk       = avgVar <= 0.1;
 
   return (
-    <div className="form-page">
+    <div className="form-page-card">
+      <FormPageHeader
+        letter="D"
+        title="Anggaran (RKAT) vs Realisasi"
+        subtitle="Bandingkan rencana RKAT terhadap realisasi aktual tahun TS. Varians dihitung otomatis. Target LAMEMBA L3: rata-rata |varians| ≤ 10%."
+      />
       <div className="budget-page-header">
-        <div>
-          <h2>Anggaran (RKAT) vs Realisasi — TS</h2>
-          <p className="form-sub">Bandingkan rencana RKAT terhadap realisasi aktual tahun TS. Varians dihitung otomatis.{' '}
-            <b>Target LAMEMBA L3:</b> rata-rata |varians| ≤ 10%.</p>
-        </div>
+        <div></div>
         {/* Mode toggle */}
         <div className="real-mode-toggle">
           <span className="rmt-label">Mode Realisasi:</span>
@@ -427,12 +484,12 @@ function StepTri({ data, onChange }) {
   });
 
   return (
-    <div className="form-page">
-      <h2>Alokasi Tridharma — TS</h2>
-      <p className="form-sub">
-        Pembagian Biaya Operasional Langsung ke tiga fungsi Tridharma.{' '}
-        <b>Target LAMEMBA L10:</b> proporsi mendekati 50% / 30% / 20% dengan deviasi maksimum ±10 pp per fungsi.
-      </p>
+    <div className="form-page-card">
+      <FormPageHeader
+        letter="E"
+        title="Alokasi Tridharma"
+        subtitle="Pembagian Biaya Operasional Langsung ke tiga fungsi Tridharma. Target LAMEMBA L10: proporsi mendekati 50% / 30% / 20% dengan deviasi maksimum ±10 pp per fungsi."
+      />
 
       {/* Summary bar */}
       <div className="budget-summary">
@@ -634,14 +691,22 @@ function StepPeople({ data, onChange }) {
     { k: 'endowDist', label: 'Annual Endowment Distribution (Payout)', info: 'Spending rate sehat 4–6% dari rata-rata endowment 3 tahun.' },
     { k: 'endowReturn', label: 'Annual Investment Return (Endowment)', info: 'Hasil investasi tahunan endowment. Sehat > 8%.' },
   ];
+  const filled = fields.filter(f => data.TS && data.TS[f.k]).length;
   return (
-    <div className="card">
-      <div className="card-section-title"><span className="num">F.</span><h3>Mahasiswa, Dosen & Endowment</h3></div>
-      <p className="card-sub">Data demografis institusi & arus dana abadi (endowment). Diperlukan untuk Student-Faculty Ratio, Cost per Student, Endowment Spending Rate.</p>
+    <div className="form-page-card">
+      <FormPageHeader
+        letter="F"
+        title="Mahasiswa, Dosen & Endowment"
+        subtitle="Data demografis institusi & arus dana abadi. Diperlukan untuk Student-Faculty Ratio, Cost per Student, dan Endowment Spending Rate."
+        completion={{ filled, total: fields.length }}
+      />
       <div className="field-grid">
         <FormHeader />
         {fields.map(f => <FieldRow key={f.k} k={f.k} label={f.label} info={f.info} data={data} onChange={onChange} />)}
       </div>
+      <FormTip>
+        <strong>SFR (Student-Faculty Ratio)</strong> sehat: 12–20:1. <strong>Endowment Spending Rate</strong> ideal: 4–6%. <strong>Return Endowment</strong>: &gt; 8% (di atas inflasi + spending).
+      </FormTip>
     </div>
   );
 }

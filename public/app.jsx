@@ -269,33 +269,40 @@ function StepStart({ onPreset, onBlank }) {
   return (
     <div className="step-start">
       <div className="hero">
-        <div className="eyebrow">Simulator Rasio Keuangan Perguruan Tinggi</div>
+        <div className="eyebrow"><window.Icon name="sparkles" size={12} /> Simulator Rasio Keuangan Perguruan Tinggi</div>
         <h1>Hitung kesehatan keuangan kampus Anda<br/>dalam 8 langkah.</h1>
-        <p>Berdasarkan 29 rasio keuangan, 10 indikator wajib LAMEMBA, dan metodologi Composite Financial Index. Simulasikan dampak perubahan kebijakan secara langsung pada predikat akreditasi keuangan.</p>
+        <p>Berdasarkan <b>29 rasio keuangan</b>, <b>10 indikator wajib LAMEMBA</b>, dan metodologi <b>Composite Financial Index</b>. Simulasikan dampak perubahan kebijakan secara langsung pada predikat akreditasi keuangan.</p>
       </div>
       <div className="preset-grid">
-        <div className="preset-eyebrow">Mulai dari preset</div>
-        {Object.entries(window.PRESETS).map(([k, p]) => (
-          <button key={k} className={'preset-card v-' + k} onClick={() => onPreset(k)}>
-            <div className="pc-tag" style={{borderColor: p.color, color: p.color}}>{p.label}</div>
-            <div className="pc-desc">{p.desc}</div>
-            <div className="pc-stat">
-              <span>Mhs aktif</span>
-              <b>{p.TS.mhsCount.toLocaleString('id-ID')}</b>
-            </div>
-            <div className="pc-stat">
-              <span>Total Pendapatan</span>
-              <b>{window.fmtRp(window.computeYear(p.TS).totalRev)}</b>
-            </div>
-            <div className="pc-cta">Mulai dengan data ini →</div>
-          </button>
-        ))}
+        <div className="preset-eyebrow"><window.Icon name="folder-open" size={11} /> Mulai dari preset · pilih skenario kampus terdekat</div>
+        {Object.entries(window.PRESETS).map(([k, p]) => {
+          const yearResult = window.computeYear(p.TS);
+          return (
+            <button key={k} className={'preset-card v-' + k} onClick={() => onPreset(k)}>
+              <div className="pc-tag" style={{borderColor: p.color, color: p.color}}>{p.label}</div>
+              <div className="pc-desc">{p.desc}</div>
+              <div className="pc-stat">
+                <span>Mhs aktif</span>
+                <b>{p.TS.mhsCount.toLocaleString('id-ID')}</b>
+              </div>
+              <div className="pc-stat">
+                <span>Total Pendapatan</span>
+                <b>{window.fmtRp(yearResult.totalRev)}</b>
+              </div>
+              <div className="pc-cta">Mulai dengan data ini <window.Icon name="arrow-right" size={12} /></div>
+            </button>
+          );
+        })}
         <button className="preset-card preset-blank" onClick={onBlank}>
-          <div className="pc-tag" style={{borderColor:'#5b6a82', color:'#5b6a82'}}>KOSONG</div>
+          <div className="pc-tag pc-tag-blank">KOSONG</div>
           <div className="pc-desc">Mulai dari nol. Masukkan data laporan keuangan kampus Anda sendiri.</div>
-          <div className="pc-cta">Input dari nol →</div>
+          <div className="pc-cta">Input dari nol <window.Icon name="arrow-right" size={12} /></div>
         </button>
       </div>
+      <p className="step-start-footnote">
+        <window.Icon name="info" size={12} />
+        Setiap preset adalah 60 angka × 3 tahun yang konsisten — gunakan sebagai sandbox untuk eksplorasi sebelum input data riil.
+      </p>
     </div>
   );
 }
@@ -588,12 +595,39 @@ function WhatIfTab({ data, whatIf, setWhatIf, result }) {
   // Group by category
   const cats = [...new Set(WHAT_IF_PARAMS.map(p => p.cat))];
 
+  // Quick experiment presets — onboarding
+  const fallback = WHAT_IF_PARAMS.reduce((acc, p) => { acc[p.k] = p.fallback; return acc; }, {});
+  const quickExperiments = [
+    {
+      icon: 'trending-up',
+      title: 'Naikkan SPP 15%',
+      desc: 'Lihat dampak kenaikan SPP terhadap pendapatan dan predikat',
+      action: () => setOv('revSppGross', (TS.revSppGross || fallback.revSppGross) * 1.15),
+    },
+    {
+      icon: 'sparkles',
+      title: 'Investasi Sarpras 2×',
+      desc: 'Dobel CapEx untuk modernisasi fasilitas',
+      action: () => setOv('expCapex', (TS.expCapex || fallback.expCapex) * 2),
+    },
+    {
+      icon: 'compass',
+      title: 'Geser Riset → Donasi',
+      desc: 'Diversifikasi: kurangi riset 50%, naikkan donasi 2×',
+      action: () => {
+        setOv('revRiset', (TS.revRiset || fallback.revRiset) * 0.5);
+        setOv('revDonasi', (TS.revDonasi || fallback.revDonasi) * 2);
+      },
+    },
+  ];
+
   return (
     <div>
-      <div className="section-eyebrow">Simulasi What-If</div>
+      <div className="section-eyebrow"><window.Icon name="sparkles" size={11} /> What-If · Uji Dampak Kebijakan</div>
+      <h2 className="wi-h2">Sebelum keputusan dibawa ke rapat senat — uji dulu di sini.</h2>
       <p className="section-desc">
-        Geser slider atau ketik nilai langsung untuk melihat dampak ke predikat, CFI, dan LAMEMBA.{' '}
-        <b>Data asli tidak berubah</b> — ini hanya simulasi.
+        Geser slider atau ketik nilai untuk lihat bagaimana naik-turun parameter mengubah predikat, CFI, dan checklist LAMEMBA Anda.{' '}
+        <b>Data asli aman</b> — tidak tersentuh.
       </p>
 
       {/* Live impact summary */}
@@ -638,12 +672,33 @@ function WhatIfTab({ data, whatIf, setWhatIf, result }) {
         </div>
       </div>
 
+      {/* Onboarding panel — only when nothing changed yet */}
+      {activeCount === 0 && (
+        <div className="wi-onboard">
+          <div className="wi-onboard-head">
+            <window.Icon name="play" size={14} />
+            <span>Mulai dari skenario populer · klik salah satu untuk demo cepat</span>
+          </div>
+          <div className="wi-onboard-grid">
+            {quickExperiments.map((qe, i) => (
+              <button key={i} className="wi-quick-btn" onClick={qe.action}>
+                <window.Icon name={qe.icon} size={16} />
+                <div>
+                  <div className="wq-title">{qe.title}</div>
+                  <div className="wq-desc">{qe.desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="whatif-toolbar">
         <div className="wi-status">
           {activeCount > 0
             ? <span><b>{activeCount}</b> parameter diubah · simulasi <b style={{color:'var(--accent)'}}>AKTIF</b></span>
-            : <span style={{color:'var(--ink-3)'}}>Geser slider atau ketik nilai untuk mulai simulasi</span>}
+            : <span style={{color:'var(--ink-3)'}}>Geser slider di bawah atau pilih skenario di atas</span>}
         </div>
         {activeCount > 0 && (
           <button className="btn-ghost btn-sm" onClick={reset}><window.Icon name="rotate-ccw" size={12} /> Reset Semua</button>
@@ -652,7 +707,7 @@ function WhatIfTab({ data, whatIf, setWhatIf, result }) {
 
       {/* Sliders grouped by category */}
       {cats.map(cat => (
-        <div key={cat} className="wi-cat-section">
+        <div key={cat} className={'wi-cat-section cat-' + cat}>
           <div className="wi-cat-title">{cat}</div>
           <div className="whatif-grid">
             {WHAT_IF_PARAMS.filter(p => p.cat === cat).map(p => {
@@ -740,11 +795,11 @@ function WhatIfTab({ data, whatIf, setWhatIf, result }) {
 
                   <div className="wi-vals">
                     <span className="wi-base-val mono">
-                      Baseline: {window.fmtRp(rawBase || 0)}
+                      Saat ini: {window.fmtRp(rawBase || 0)}
                       {hasNoTS && <span className="wi-fallback-note"> (pakai default)</span>}
                     </span>
                     <span className={'wi-cur-val mono ' + (dPct > 0 ? 'pos' : dPct < 0 ? 'neg' : '')}>
-                      Simulasi: {window.fmtRp(sliderVal)}
+                      Setelah simulasi: {window.fmtRp(sliderVal)}
                     </span>
                   </div>
                 </div>

@@ -77,9 +77,11 @@ app.get('/api/profiles/:id', (req, res) => {
 
 app.put('/api/profiles/:id', (req, res) => {
   try {
-    const { name, data } = req.body;
+    const { name, data, description, campus_type, tags, result_summary } = req.body;
     if (!name || !data) return res.status(400).json({ error: 'Missing "name" or "data"' });
-    const updated_at = db.saveProfile(req.params.id, name, data);
+    const updated_at = db.saveProfile(req.params.id, name, data, {
+      description, campus_type, tags, result_summary,
+    });
     res.json({ ok: true, updated_at });
   } catch (e) { console.error('[PUT /api/profiles/:id]', e); res.status(500).json({ error: e.message }); }
 });
@@ -89,6 +91,50 @@ app.delete('/api/profiles/:id', (req, res) => {
     db.deleteProfile(req.params.id);
     res.json({ ok: true });
   } catch (e) { console.error('[DELETE /api/profiles/:id]', e); res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/profiles/:id/duplicate', (req, res) => {
+  try {
+    const copy = db.duplicateProfile(req.params.id);
+    if (!copy) return res.status(404).json({ error: 'Source profile not found' });
+    res.json(copy);
+  } catch (e) { console.error('[POST /api/profiles/:id/duplicate]', e); res.status(500).json({ error: e.message }); }
+});
+
+// ── Projects (alias of /api/profiles for clearer naming) ────────────────
+app.get('/api/projects', (req, res) => {
+  try { res.json(db.getProfiles()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/projects/:id', (req, res) => {
+  try {
+    const project = db.getProfile(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    res.json(project);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/projects/:id', (req, res) => {
+  try {
+    const { name, data, description, campus_type, tags, result_summary } = req.body;
+    if (!name || !data) return res.status(400).json({ error: 'Missing "name" or "data"' });
+    const updated_at = db.saveProfile(req.params.id, name, data, {
+      description, campus_type, tags, result_summary,
+    });
+    res.json({ ok: true, updated_at });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/projects/:id', (req, res) => {
+  try {
+    db.deleteProfile(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/projects/:id/duplicate', (req, res) => {
+  try {
+    const copy = db.duplicateProfile(req.params.id);
+    if (!copy) return res.status(404).json({ error: 'Source project not found' });
+    res.json(copy);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Fallback to index.html (SPA) ───────────────────────────────────────────

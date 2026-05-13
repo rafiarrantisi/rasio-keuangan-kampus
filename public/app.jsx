@@ -14,9 +14,14 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 }/*EDITMODE-END*/;
 
 function App() {
-  const [view, setView] = useState(() =>
-    typeof window !== 'undefined' && window.location.hash === '#app' ? 'simulator' : 'landing'
-  );
+  const [view, setView] = useState(() => {
+    if (typeof window === 'undefined') return 'landing';
+    const h = window.location.hash;
+    if (h === '#app') return 'simulator';
+    if (h === '#projects') return 'projects';
+    if (h === '#compare') return 'compare';
+    return 'landing';
+  });
   const [step, setStep] = useState(0);
   const [data, setData] = useState(() => {
     try {
@@ -37,11 +42,14 @@ function App() {
   const saveTimer  = useRef(null);
   const backendRef = useRef(null);
 
-  // Hash-based routing for landing ↔ simulator
+  // Hash-based routing for landing ↔ simulator ↔ projects ↔ compare
   useEffect(() => {
     const onHash = () => {
-      const v = window.location.hash === '#app' ? 'simulator' : 'landing';
-      setView(v);
+      const h = window.location.hash;
+      if (h === '#app') setView('simulator');
+      else if (h === '#projects') setView('projects');
+      else if (h === '#compare') setView('compare');
+      else setView('landing');
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -49,12 +57,66 @@ function App() {
 
   const goSimulator = () => { window.location.hash = '#app'; setView('simulator'); };
   const goLanding = () => { window.location.hash = '#landing'; setView('landing'); };
+  const goProjects = () => { window.location.hash = '#projects'; setView('projects'); };
+  const goCompare = () => { window.location.hash = '#compare'; setView('compare'); };
   const goDemo = () => {
     // Load BAIK preset and jump to results
     setData(JSON.parse(JSON.stringify(window.PRESETS.BAIK)));
     setStep(7);
     setResultTab('overview');
     goSimulator();
+  };
+
+  // Multi-project state
+  const [compareProjects, setCompareProjects] = useState([]);
+
+  // Open project from projects view
+  const handleOpenProject = (proj) => {
+    setData(proj.data);
+    setActiveProfile({ id: proj.id, name: proj.name });
+    setStep(7); // Jump to results
+    setResultTab('overview');
+    goSimulator();
+  };
+
+  // Create new project from projects view modal
+  const handleNewProject = ({ name, description, campus_type, seedFrom }) => {
+    const id = 'proj_' + Date.now();
+    let projData;
+    if (seedFrom && window.PRESETS[seedFrom]) {
+      projData = JSON.parse(JSON.stringify(window.PRESETS[seedFrom]));
+    } else {
+      projData = JSON.parse(JSON.stringify(EMPTY_DATA));
+    }
+    setData(projData);
+    setActiveProfile({ id, name });
+    setStep(seedFrom ? 7 : 1);
+    setResultTab('overview');
+    // Save immediately so it appears in projects list
+    if (typeof window.apiSaveProject === 'function') {
+      const result = window.computeAll(projData);
+      window.apiSaveProject(id, name, projData, {
+        description,
+        campus_type,
+        tags: [],
+        result_summary: {
+          verdict: result.verdict,
+          CFI_total: result.CFI_total,
+          lameba_fulfilled: result.lamebaTerpenuhi,
+          mhs_count: projData.TS?.mhsCount || 0,
+        },
+      }).catch(() => {});
+    }
+    goSimulator();
+  };
+
+  // Start comparison
+  const handleStartCompare = async (ids) => {
+    try {
+      const projects = await Promise.all(ids.map(id => window.apiGetProject(id)));
+      setCompareProjects(projects);
+      goCompare();
+    } catch (e) {}
   };
 
   // On mount: probe /api/health first, then restore state if backend is up
@@ -106,9 +168,19 @@ function App() {
   };
 
   const handleSaveProfile = (name) => {
-    const id = activeProfile?.id || 'prof_' + Date.now();
-    const profileName = name || activeProfile?.name || 'Profil Baru';
-    window.apiSaveProfile(id, profileName, data)
+    const id = activeProfile?.id || 'proj_' + Date.now();
+    const profileName = name || activeProfile?.name || 'Project Baru';
+    let result_summary = null;
+    try {
+      const r = window.computeAll(data);
+      result_summary = {
+        verdict: r.verdict,
+        CFI_total: r.CFI_total,
+        lameba_fulfilled: r.lamebaTerpenuhi,
+        mhs_count: data.TS?.mhsCount || 0,
+      };
+    } catch (e) {}
+    window.apiSaveProfile(id, profileName, data, { result_summary })
       .then(() => {
         setActiveProfile({ id, name: profileName });
         setShowSaveDialog(false);
@@ -144,7 +216,40 @@ function App() {
   if (view === 'landing') {
     return (
       <div className="app view-landing" style={{'--accent': tweak.accentColor}}>
-        <window.Landing onStart={goSimulator} onDemo={goDemo} />
+        <window.Landing onStart={goSimulator} onDemo={goDemo} onProjects={goProjects} />
+      </div>
+    );
+  }
+
+  if (view === 'projects') {
+    return (
+      <div className="app view-projects" style={{'--accent': tweak.accentColor}}>
+        <window.ProjectsView
+          activeProject={activeProfile}
+          onOpenProject={handleOpenProject}
+          onBackToLanding={goLanding}
+          onNewProject={handleNewProject}
+          onStartCompare={handleStartCompare}
+        />
+      </div>
+    );
+  }
+
+  if (view === 'compare') {
+    return (
+      <div className="app view-compare" style={{'--accent': tweak.accentColor}}>
+        {window.CompareView ? (
+          <window.CompareView
+            projects={compareProjects}
+            onBack={goProjects}
+            onClose={goLanding}
+          />
+        ) : (
+          <div style={{padding:40,textAlign:'center',color:'#fff',background:'#142847',minHeight:'100vh'}}>
+            <h2>Memuat Compare View…</h2>
+            <p>Jika tidak muncul, kembali ke <button className="btn-link" onClick={goProjects}>Project</button></p>
+          </div>
+        )}
       </div>
     );
   }
@@ -153,7 +258,7 @@ function App() {
     <div className={'app view-app density-' + tweak.density} style={{'--accent': tweak.accentColor}}>
       <Header step={step} onStep={setStep} onReset={reset} onTweaks={() => setTweaksOpen(true)} saveStatus={saveStatus}
               activeProfile={activeProfile} onSave={() => activeProfile ? handleSaveProfile() : setShowSaveDialog(true)}
-              onSaveAs={() => setShowSaveDialog(true)} onLoad={() => setShowProfileModal(true)} onBrandClick={goLanding} />
+              onSaveAs={() => setShowSaveDialog(true)} onProjects={goProjects} onBrandClick={goLanding} />
       <Sidebar step={step} onStep={setStep} result={result} hasData={hasAnyData(data)} />
       <main className="main">
         {step === 0 && <StepStart onPreset={loadPreset} onBlank={() => { reset(); setStep(1); }} />}
@@ -192,7 +297,7 @@ function hasAnyData(d) {
   return Object.values(d.TS).some(v => v && v !== 0);
 }
 
-function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onLoad, onBrandClick }) {
+function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onProjects, onBrandClick }) {
   return (
     <header className="topbar">
       <button className="brand brand-btn" onClick={onBrandClick} title="Kembali ke beranda" type="button">
@@ -209,7 +314,7 @@ function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, on
         {saveStatus === 'saving'  && <span className="save-status saving">Menyimpan…</span>}
         {saveStatus === 'saved'   && <span className="save-status saved">Tersimpan</span>}
         {saveStatus === 'offline' && <span className="save-status offline" title="Server tidak tersedia — data disimpan lokal">Offline</span>}
-        <button className="btn-ghost" onClick={onLoad}><window.Icon name="folder-open" size={14} /> Muat Profil</button>
+        <button className="btn-ghost" onClick={onProjects}><window.Icon name="folder-open" size={14} /> Project Saya</button>
         <button className="btn-ghost" onClick={onSave}><window.Icon name="save" size={14} /> Simpan</button>
         <button className="btn-ghost" onClick={onSaveAs}><window.Icon name="edit-2" size={14} /> Simpan Sebagai…</button>
         <button className="btn-ghost" onClick={onReset}><window.Icon name="rotate-ccw" size={14} /> Reset</button>

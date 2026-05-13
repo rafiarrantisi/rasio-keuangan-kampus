@@ -110,21 +110,41 @@ function writeProfiles(profiles) {
 }
 
 function getProfiles() {
-  return loadProfiles().map(p => ({ id: p.id, name: p.name, updated_at: p.updated_at }));
+  // Return metadata only (skip full data field for list listing)
+  return loadProfiles().map(p => ({
+    id: p.id,
+    name: p.name,
+    description: p.description || '',
+    campus_type: p.campus_type || null,
+    tags: p.tags || [],
+    result_summary: p.result_summary || null,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+  }));
 }
 
 function getProfile(id) {
   return loadProfiles().find(p => p.id === id) || null;
 }
 
-function saveProfile(id, name, data) {
+function saveProfile(id, name, data, extras = {}) {
   const profiles = loadProfiles();
   const now = new Date().toISOString();
   const idx = profiles.findIndex(p => p.id === id);
+  const baseFields = {
+    id,
+    name,
+    data,
+    description: extras.description || '',
+    campus_type: extras.campus_type || null,
+    tags: extras.tags || [],
+    result_summary: extras.result_summary || null,
+    updated_at: now,
+  };
   if (idx >= 0) {
-    profiles[idx] = { ...profiles[idx], name, data, updated_at: now };
+    profiles[idx] = { ...profiles[idx], ...baseFields };
   } else {
-    profiles.push({ id, name, data, created_at: now, updated_at: now });
+    profiles.push({ ...baseFields, created_at: now });
   }
   writeProfiles(profiles);
   return now;
@@ -135,10 +155,32 @@ function deleteProfile(id) {
   writeProfiles(profiles);
 }
 
+function duplicateProfile(id) {
+  const profiles = loadProfiles();
+  const src = profiles.find(p => p.id === id);
+  if (!src) return null;
+  const now = new Date().toISOString();
+  const newId = 'proj_' + Date.now();
+  const copy = {
+    ...src,
+    id: newId,
+    name: (src.name || 'Project') + ' (salinan)',
+    created_at: now,
+    updated_at: now,
+  };
+  profiles.push(copy);
+  writeProfiles(profiles);
+  return copy;
+}
+
 // ── Init (called on server start) ─────────────────────────────────────────────
 function init() {
   ensureDataDir();
   if (!fs.existsSync(PRESETS_FILE)) seedPresets();
 }
 
-module.exports = { init, getState, saveState, getPresetList, getPreset, getProfiles, getProfile, saveProfile, deleteProfile };
+module.exports = {
+  init, getState, saveState,
+  getPresetList, getPreset,
+  getProfiles, getProfile, saveProfile, deleteProfile, duplicateProfile,
+};

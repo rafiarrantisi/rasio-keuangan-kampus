@@ -38,11 +38,21 @@ async function apiGetPreset(id) {
   return apiFetch('GET', '/api/presets/' + encodeURIComponent(id));
 }
 
-// ── Profiles ────────────────────────────────────────────────────────────────
+// ── Profiles / Projects (multi-save) ────────────────────────────────────────
 async function apiGetProfiles() { return apiFetch('GET', '/api/profiles'); }
 async function apiGetProfile(id) { return apiFetch('GET', '/api/profiles/' + encodeURIComponent(id)); }
-async function apiSaveProfile(id, name, data) { return apiFetch('PUT', '/api/profiles/' + encodeURIComponent(id), { name, data }); }
+async function apiSaveProfile(id, name, data, extras) {
+  return apiFetch('PUT', '/api/profiles/' + encodeURIComponent(id), { name, data, ...(extras || {}) });
+}
 async function apiDeleteProfile(id) { return apiFetch('DELETE', '/api/profiles/' + encodeURIComponent(id)); }
+async function apiDuplicateProfile(id) { return apiFetch('POST', '/api/profiles/' + encodeURIComponent(id) + '/duplicate'); }
+
+// Project aliases (semantic naming for multi-project page)
+const apiGetProjects = apiGetProfiles;
+const apiGetProject = apiGetProfile;
+const apiSaveProject = apiSaveProfile;
+const apiDeleteProject = apiDeleteProfile;
+const apiDuplicateProject = apiDuplicateProfile;
 
 // ── Health ───────────────────────────────────────────────────────────────────
 async function apiHealth() {
@@ -59,5 +69,11 @@ window.apiGetProfiles   = apiGetProfiles;
 window.apiGetProfile    = apiGetProfile;
 window.apiSaveProfile   = apiSaveProfile;
 window.apiDeleteProfile = apiDeleteProfile;
+window.apiDuplicateProfile = apiDuplicateProfile;
+window.apiGetProjects   = apiGetProjects;
+window.apiGetProject    = apiGetProject;
+window.apiSaveProject   = apiSaveProject;
+window.apiDeleteProject = apiDeleteProject;
+window.apiDuplicateProject = apiDuplicateProject;
 
 })();

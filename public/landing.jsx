@@ -120,10 +120,10 @@ function GoldOrb({ style, size = 600 }) {
   );
 }
 
-function Landing({ onStart, onDemo }) {
+function Landing({ onStart, onDemo, onProjects }) {
   return (
     <div className="landing">
-      <LandingNav onStart={onStart} />
+      <LandingNav onStart={onStart} onProjects={onProjects} />
       <HeroSection onStart={onStart} onDemo={onDemo} />
       <StatStrip />
       <ValueProps />
@@ -131,12 +131,12 @@ function Landing({ onStart, onDemo }) {
       <FeatureGrid />
       <MethodologyCard />
       <FinalCTA onStart={onStart} />
-      <LandingFooter />
+      <LandingFooter onProjects={onProjects} />
     </div>
   );
 }
 
-function LandingNav({ onStart }) {
+function LandingNav({ onStart, onProjects }) {
   const [scrolled, setScrolled] = React.useState(false);
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -151,6 +151,11 @@ function LandingNav({ onStart }) {
           <a href="#fitur">Fitur</a>
           <a href="#cara-kerja">Cara Kerja</a>
           <a href="#metodologi">Metodologi</a>
+          {onProjects && (
+            <button className="landing-nav-link-btn" onClick={onProjects}>
+              <window.Icon name="folder-open" size={13} /> Project Saya
+            </button>
+          )}
         </div>
         <button className="btn-primary landing-cta-sm" onClick={onStart}>
           Mulai Menghitung <window.Icon name="arrow-right" size={14} />

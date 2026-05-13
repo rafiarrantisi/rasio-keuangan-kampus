@@ -3,7 +3,6 @@
 function GaugeIKK({ value, components }) {
   const max = 4;
   const safeVal = Math.min(max, Math.max(0, value || 0));
-  const pct = safeVal / max;
   const W = 360, H = 230;
   const cx = W / 2, cy = 180, r = 120;
   const polar = (radius, t) => {
@@ -20,18 +19,35 @@ function GaugeIKK({ value, components }) {
   };
 
   const segments = [
-    { from: 0,       to: 1.5/4,  color: '#9b2c2c', label: 'Berisiko',    range: '0 – 1.5' },
-    { from: 1.5/4,   to: 2.5/4,  color: '#c07928', label: 'Perhatian',   range: '1.5 – 2.5' },
-    { from: 2.5/4,   to: 3.5/4,  color: '#2f6b3d', label: 'Baik',        range: '2.5 – 3.5' },
-    { from: 3.5/4,   to: 1.0,    color: '#1e6fb8', label: 'Sangat Baik', range: '3.5 – 4.0' },
+    { from: 0,       to: 1.5/4,  color: window.CHART_COLORS.bad,     label: 'Berisiko',    range: '0 – 1.5' },
+    { from: 1.5/4,   to: 2.5/4,  color: window.CHART_COLORS.warnAlt, label: 'Perhatian',   range: '1.5 – 2.5' },
+    { from: 2.5/4,   to: 3.5/4,  color: window.CHART_COLORS.ok,      label: 'Baik',        range: '2.5 – 3.5' },
+    { from: 3.5/4,   to: 1.0,    color: window.CHART_COLORS.info,    label: 'Sangat Baik', range: '3.5 – 4.0' },
   ];
   const status =
-    safeVal >= 3.5 ? { label: 'SANGAT BAIK', color: '#1e6fb8' } :
-    safeVal >= 2.5 ? { label: 'BAIK',        color: '#2f6b3d' } :
-    safeVal >= 1.5 ? { label: 'PERHATIAN',   color: '#c07928' } :
-                     { label: 'BERISIKO',    color: '#9b2c2c' };
+    safeVal >= 3.5 ? { label: 'SANGAT BAIK', color: window.CHART_COLORS.info } :
+    safeVal >= 2.5 ? { label: 'BAIK',        color: window.CHART_COLORS.ok } :
+    safeVal >= 1.5 ? { label: 'PERHATIAN',   color: window.CHART_COLORS.warnAlt } :
+                     { label: 'BERISIKO',    color: window.CHART_COLORS.bad };
 
-  const [nx, ny] = polar(r - 12, pct);
+  // Animated needle sweep on mount
+  const [animPct, setAnimPct] = React.useState(window.prefersReducedMotion() ? safeVal / max : 0);
+  React.useEffect(() => {
+    if (window.prefersReducedMotion()) { setAnimPct(safeVal / max); return; }
+    const target = safeVal / max;
+    const start = performance.now();
+    const dur = 900;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    let raf;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      setAnimPct(target * ease(t));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [safeVal]);
+  const [nx, ny] = polar(r - 12, animPct);
 
   return (
     <div className="gauge-wrap gauge-horizontal">
@@ -134,8 +150,24 @@ function RadarChart({ scorecard }) {
     const pts = scorecard.map((_, i) => [cx + R * p * Math.cos(angle(i)), cy + R * p * Math.sin(angle(i))]);
     return pts.map((q, i) => (i === 0 ? 'M' : 'L') + q[0] + ',' + q[1]).join(' ') + ' Z';
   });
+  // Animated scale-in
+  const [animT, setAnimT] = React.useState(window.prefersReducedMotion() ? 1 : 0);
+  React.useEffect(() => {
+    if (window.prefersReducedMotion()) { setAnimT(1); return; }
+    const start = performance.now();
+    const dur = 800;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    let raf;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      setAnimT(ease(t));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [scorecard]);
   const pts = scorecard.map((s, i) => {
-    const v = Math.min(1, s.score / 100);
+    const v = Math.min(1, s.score / 100) * animT;
     return [cx + R * v * Math.cos(angle(i)), cy + R * v * Math.sin(angle(i))];
   });
   const path = pts.map((q, i) => (i === 0 ? 'M' : 'L') + q[0] + ',' + q[1]).join(' ') + ' Z';
@@ -289,7 +321,7 @@ function RatioDrawer({ ratio, onClose }) {
         <div className="drawer-head">
           <div>
             <div style={{fontSize:11,letterSpacing:'.1em',textTransform:'uppercase',color:'#b8862c',fontWeight:600}}>
-              {ratio.lameba ? '★ LAMEMBA · ' : ''}#{ratio.no} · {ratio.cat}
+              {ratio.lameba ? <><window.Icon name="star" size={11} /> LAMEMBA · </> : ''}#{ratio.no} · {ratio.cat}
             </div>
             <h3>{ratio.name}</h3>
             <div style={{marginTop:4}}><StatusPill s={ratio.status} /></div>

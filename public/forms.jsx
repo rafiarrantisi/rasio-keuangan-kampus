@@ -22,10 +22,9 @@ function CurrencyInput({ value, onChange, warn, allowNegative }) {
     <div style={{position:'relative', flex:1}}>
       <input type="text" value={str} onChange={handle} className={warn ? 'warn' : ''} placeholder="0" />
       {allowNegative && (
-        <button type="button" onClick={flip} title="Toggle ±"
-          style={{position:'absolute', right:6, top:'50%', transform:'translateY(-50%)',
-                  width:20, height:20, border:0, background:'#ece7db', borderRadius:3,
-                  cursor:'pointer', fontSize:11, color:'#5b6a82'}}>±</button>
+        <button type="button" onClick={flip} title="Toggle ±" className="input-flip-btn">
+          <window.Icon name="plus-minus" size={12} />
+        </button>
       )}
     </div>
   );
@@ -37,7 +36,7 @@ function FieldRow({ k, label, info, allowNegative, data, onChange, derived, deri
     <div className="row-label">
       {info && (
         <span className="tip-wrap">
-          <span className="info">i</span>
+          <span className="info"><window.Icon name="info" size={11} /></span>
           <span className="tip">{info}</span>
         </span>
       )}
@@ -49,7 +48,7 @@ function FieldRow({ k, label, info, allowNegative, data, onChange, derived, deri
           <CurrencyInput value={data[yr][k]} onChange={(v) => onChange(yr, k, v)} warn={warn && yr === 'TS'} allowNegative={allowNegative} />}
       </div>
     ))}
-    {warn && <div className="row-warn">⚠ {warn}</div>}
+    {warn && <div className="row-warn"><window.Icon name="alert-triangle" size={13} /> {warn}</div>}
   </>);
 }
 

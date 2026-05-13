@@ -14,6 +14,9 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 }/*EDITMODE-END*/;
 
 function App() {
+  const [view, setView] = useState(() =>
+    typeof window !== 'undefined' && window.location.hash === '#app' ? 'simulator' : 'landing'
+  );
   const [step, setStep] = useState(0);
   const [data, setData] = useState(() => {
     try {
@@ -33,6 +36,26 @@ function App() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const saveTimer  = useRef(null);
   const backendRef = useRef(null);
+
+  // Hash-based routing for landing ↔ simulator
+  useEffect(() => {
+    const onHash = () => {
+      const v = window.location.hash === '#app' ? 'simulator' : 'landing';
+      setView(v);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const goSimulator = () => { window.location.hash = '#app'; setView('simulator'); };
+  const goLanding = () => { window.location.hash = '#landing'; setView('landing'); };
+  const goDemo = () => {
+    // Load BAIK preset and jump to results
+    setData(JSON.parse(JSON.stringify(window.PRESETS.BAIK)));
+    setStep(7);
+    setResultTab('overview');
+    goSimulator();
+  };
 
   // On mount: probe /api/health first, then restore state if backend is up
   useEffect(() => {
@@ -118,11 +141,19 @@ function App() {
 
   const result = useMemo(() => window.computeAll(effectiveData), [effectiveData]);
 
+  if (view === 'landing') {
+    return (
+      <div className="app view-landing" style={{'--accent': tweak.accentColor}}>
+        <window.Landing onStart={goSimulator} onDemo={goDemo} />
+      </div>
+    );
+  }
+
   return (
-    <div className={'app density-' + tweak.density} style={{'--accent': tweak.accentColor}}>
+    <div className={'app view-app density-' + tweak.density} style={{'--accent': tweak.accentColor}}>
       <Header step={step} onStep={setStep} onReset={reset} onTweaks={() => setTweaksOpen(true)} saveStatus={saveStatus}
               activeProfile={activeProfile} onSave={() => activeProfile ? handleSaveProfile() : setShowSaveDialog(true)}
-              onSaveAs={() => setShowSaveDialog(true)} onLoad={() => setShowProfileModal(true)} />
+              onSaveAs={() => setShowSaveDialog(true)} onLoad={() => setShowProfileModal(true)} onBrandClick={goLanding} />
       <Sidebar step={step} onStep={setStep} result={result} hasData={hasAnyData(data)} />
       <main className="main">
         {step === 0 && <StepStart onPreset={loadPreset} onBlank={() => { reset(); setStep(1); }} />}
@@ -161,27 +192,27 @@ function hasAnyData(d) {
   return Object.values(d.TS).some(v => v && v !== 0);
 }
 
-function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onLoad }) {
+function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onLoad, onBrandClick }) {
   return (
     <header className="topbar">
-      <div className="brand">
-        <div className="logo-mark">RK</div>
-        <div>
+      <button className="brand brand-btn" onClick={onBrandClick} title="Kembali ke beranda" type="button">
+        <window.Logo size={40} variant="light" />
+        <div className="brand-text">
           <div className="brand-name">Rasio Keuangan Kampus</div>
           <div className="brand-sub">
             {activeProfile ? activeProfile.name : 'Simulator LAMEMBA · Composite Financial Index'}
           </div>
         </div>
-      </div>
+      </button>
       <div className="topbar-actions">
         <span className="step-pill">Langkah {step + 1} / 8</span>
         {saveStatus === 'saving'  && <span className="save-status saving">Menyimpan…</span>}
         {saveStatus === 'saved'   && <span className="save-status saved">Tersimpan</span>}
         {saveStatus === 'offline' && <span className="save-status offline" title="Server tidak tersedia — data disimpan lokal">Offline</span>}
-        <button className="btn-ghost" onClick={onLoad}>Muat Profil</button>
-        <button className="btn-ghost" onClick={onSave}>Simpan</button>
-        <button className="btn-ghost" onClick={onSaveAs}>Simpan Sebagai…</button>
-        <button className="btn-ghost" onClick={onReset}>Reset Data</button>
+        <button className="btn-ghost" onClick={onLoad}><window.Icon name="folder-open" size={14} /> Muat Profil</button>
+        <button className="btn-ghost" onClick={onSave}><window.Icon name="save" size={14} /> Simpan</button>
+        <button className="btn-ghost" onClick={onSaveAs}><window.Icon name="edit-2" size={14} /> Simpan Sebagai…</button>
+        <button className="btn-ghost" onClick={onReset}><window.Icon name="rotate-ccw" size={14} /> Reset</button>
       </div>
     </header>
   );
@@ -217,14 +248,18 @@ function Sidebar({ step, onStep, result, hasData }) {
 function StepNav({ step, onStep, onCopyTS1 }) {
   return (
     <div className="step-nav">
-      <button className="btn-ghost" disabled={step <= 0} onClick={() => onStep(step - 1)}>← Sebelumnya</button>
+      <button className="btn-ghost" disabled={step <= 0} onClick={() => onStep(step - 1)}>
+        <window.Icon name="arrow-left" size={14} /> Sebelumnya
+      </button>
       <div className="step-nav-mid">
         {step >= 1 && step <= 6 && (
-          <button className="btn-link" onClick={onCopyTS1}>↻ Salin TS-1 → TS</button>
+          <button className="btn-link" onClick={onCopyTS1}>
+            <window.Icon name="refresh-cw" size={13} /> Salin TS-1 → TS
+          </button>
         )}
       </div>
       <button className="btn-primary" disabled={step >= 7} onClick={() => onStep(step + 1)}>
-        {step === 6 ? 'Hitung & Lihat Hasil' : 'Lanjut'} →
+        {step === 6 ? 'Hitung & Lihat Hasil' : 'Lanjut'} <window.Icon name="arrow-right" size={14} />
       </button>
     </div>
   );
@@ -289,7 +324,7 @@ function ResultPage({ result, data, tab, setTab, whatIf, setWhatIf, onPickRatio,
           ))}
         </div>
         <button className="btn-print no-print" onClick={() => window.print()} title="Cetak / Export PDF">
-          🖨 Cetak / PDF
+          <window.Icon name="printer" size={14} /> Cetak / PDF
         </button>
       </div>
       <div className="result-body">
@@ -455,7 +490,7 @@ function TrendTable({ derived }) {
               <td className="mono">{window.fmtRp(a)}</td>
               <td className="mono">{window.fmtRp(b)}</td>
               <td className="mono"><b>{window.fmtRp(c)}</b></td>
-              <td className="mono" style={{color: delta > 0 ? '#2f6b3d' : delta < 0 ? '#9b2c2c' : '#5b6a82'}}>
+              <td className={'mono delta-' + (delta > 0 ? 'up' : delta < 0 ? 'down' : 'zero')}>
                 {delta === null ? '—' : (delta > 0 ? '+' : '') + delta.toFixed(1) + '%'}
               </td>
             </tr>
@@ -488,7 +523,7 @@ function CompareTab({ result }) {
           return (
             <div key={r.id} className="ct-row">
               <div className="ct-name">
-                {r.lameba && <span className="lam-badge">★</span>}
+                {r.lameba && <span className="lam-badge"><window.Icon name="star" size={10} /></span>}
                 <span>{r.name}</span>
               </div>
               <div className="ct-you mono">{window.fmtByType(r.v, r.format)}</div>
@@ -611,7 +646,7 @@ function WhatIfTab({ data, whatIf, setWhatIf, result }) {
             : <span style={{color:'var(--ink-3)'}}>Geser slider atau ketik nilai untuk mulai simulasi</span>}
         </div>
         {activeCount > 0 && (
-          <button className="btn-ghost btn-sm" onClick={reset}>↻ Reset Semua</button>
+          <button className="btn-ghost btn-sm" onClick={reset}><window.Icon name="rotate-ccw" size={12} /> Reset Semua</button>
         )}
       </div>
 
@@ -741,24 +776,23 @@ function RecsTab({ result, data }) {
   }
 
   const priorityLabel = { high: 'PRIORITAS TINGGI', 'med-high': 'PRIORITAS MENENGAH-TINGGI', med: 'PRIORITAS MENENGAH' };
-  const priorityColor = { high: '#9b2c2c', 'med-high': '#b45309', med: '#1e6fb8' };
 
   return (
     <div>
       <div className="section-eyebrow">Rekomendasi & Analisis ({recs.length} item)</div>
       <p className="section-desc">
         Dihitung berdasarkan kondisi aktual, selisih ke target, dan tren 3 tahun.{' '}
-        Prioritas <b style={{color:'#9b2c2c'}}>Tinggi</b> = indikator LAMEMBA wajib yang belum terpenuhi.
+        Prioritas <b className="text-bad">Tinggi</b> = indikator LAMEMBA wajib yang belum terpenuhi.
       </p>
       <div className="recs-list">
         {recs.map((rec, i) => (
           <div key={i} className={'rec-card pri-' + rec.priority}>
             <div className="rec-head">
-              <span className="rec-pri" style={{background: priorityColor[rec.priority] + '18', color: priorityColor[rec.priority], border: '1px solid ' + priorityColor[rec.priority] + '40'}}>
+              <span className={'rec-pri pri-pill-' + rec.priority}>
                 {priorityLabel[rec.priority] || 'PRIORITAS MENENGAH'}
               </span>
               <span className="rec-ind">
-                {rec.ratio.lameba ? <span className="rec-star">★ LAMEMBA</span> : null}
+                {rec.ratio.lameba ? <span className="rec-star"><window.Icon name="star" size={11} /> LAMEMBA</span> : null}
                 {rec.ratio.no} · {rec.ratio.name}
               </span>
             </div>
@@ -911,7 +945,7 @@ function HistoricalTab({ result, onPickRatio }) {
               {items.map(r => (
                 <tr key={r.id} className="hist-row" onClick={() => onPickRatio && onPickRatio(r)} style={{cursor:'pointer'}}>
                   <td>
-                    {r.lameba && <span className="lam-badge">★</span>}
+                    {r.lameba && <span className="lam-badge"><window.Icon name="star" size={10} /></span>}
                     {r.name}
                   </td>
                   <td className="mono">{r.v2 !== undefined ? window.fmtByType(r.v2, r.format) : '—'}</td>

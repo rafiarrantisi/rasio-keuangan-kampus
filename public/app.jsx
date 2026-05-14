@@ -403,7 +403,7 @@ function Sidebar({ step, onStep, result, hasData, mobileOpen, onMobileClose }) {
           </li>
         ))}
       </ol>
-      {hasData && result && (
+      {hasData && result && step > 0 && (
         <div className="side-summary">
           <div className="ss-label">Status saat ini</div>
           <div className={'ss-pill v-' + result.verdict}>{window.VERDICT_INFO[result.verdict].label}</div>

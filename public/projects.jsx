@@ -34,16 +34,23 @@ function ProjectsView({ activeProject, onOpenProject, onBackToLanding, onNewProj
   };
   const handleDelete = async (id) => {
     try {
+      const proj = projects.find(p => p.id === id);
       await window.apiDeleteProject(id);
       refresh();
       setConfirmDelete(null);
-    } catch (e) {}
+      window.showToast?.('Project "' + (proj?.name || '') + '" dihapus', { variant: 'info' });
+    } catch (e) {
+      window.showToast?.('Gagal menghapus project', { variant: 'error' });
+    }
   };
   const handleDuplicate = async (id) => {
     try {
-      await window.apiDuplicateProject(id);
+      const copy = await window.apiDuplicateProject(id);
       refresh();
-    } catch (e) {}
+      window.showToast?.('Salinan dibuat: "' + (copy?.name || 'Project') + '"', { variant: 'success' });
+    } catch (e) {
+      window.showToast?.('Gagal menduplikasi project', { variant: 'error' });
+    }
   };
   const handleRenameSave = async (proj, newName, newDesc, newType) => {
     try {
@@ -56,7 +63,10 @@ function ProjectsView({ activeProject, onOpenProject, onBackToLanding, onNewProj
       });
       refresh();
       setRenameProj(null);
-    } catch (e) {}
+      window.showToast?.('Project diperbarui', { variant: 'success' });
+    } catch (e) {
+      window.showToast?.('Gagal menyimpan perubahan', { variant: 'error' });
+    }
   };
 
   const handleExport = async (proj) => {
@@ -71,7 +81,10 @@ function ProjectsView({ activeProject, onOpenProject, onBackToLanding, onNewProj
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (e) {}
+      window.showToast?.('File JSON diunduh', { variant: 'success' });
+    } catch (e) {
+      window.showToast?.('Gagal export JSON', { variant: 'error' });
+    }
   };
 
   const toggleSelect = (id) => {

@@ -294,6 +294,112 @@ function Icon({ name, size = 16, strokeWidth = 2, className = '', style = {} }) 
   );
 }
 
+// === Toast notifications (global event-driven) ===
+let toastCounter = 0;
+const toastListeners = new Set();
+
+function showToast(message, opts = {}) {
+  const id = ++toastCounter;
+  const toast = {
+    id,
+    message,
+    variant: opts.variant || 'success', // 'success' | 'error' | 'info' | 'warn'
+    duration: opts.duration ?? 3500,
+    action: opts.action || null, // { label, onClick }
+  };
+  toastListeners.forEach(fn => fn({ type: 'add', toast }));
+  if (toast.duration > 0) {
+    setTimeout(() => {
+      toastListeners.forEach(fn => fn({ type: 'remove', id }));
+    }, toast.duration);
+  }
+  return id;
+}
+
+function ToastHost() {
+  const [toasts, setToasts] = React.useState([]);
+  React.useEffect(() => {
+    const handler = (evt) => {
+      if (evt.type === 'add') {
+        setToasts(prev => [...prev, evt.toast]);
+      } else if (evt.type === 'remove') {
+        setToasts(prev => prev.filter(t => t.id !== evt.id));
+      }
+    };
+    toastListeners.add(handler);
+    return () => toastListeners.delete(handler);
+  }, []);
+  if (toasts.length === 0) return null;
+  return (
+    <div className="toast-host" role="status" aria-live="polite">
+      {toasts.map(t => (
+        <div key={t.id} className={'toast toast-' + t.variant}>
+          <Icon name={t.variant === 'success' ? 'check' : t.variant === 'error' ? 'alert-triangle' : t.variant === 'warn' ? 'alert-triangle' : 'info'} size={16} />
+          <span className="toast-msg">{t.message}</span>
+          {t.action && (
+            <button className="toast-action" onClick={() => { t.action.onClick(); toastListeners.forEach(fn => fn({ type: 'remove', id: t.id })); }}>
+              {t.action.label}
+            </button>
+          )}
+          <button className="toast-close" onClick={() => toastListeners.forEach(fn => fn({ type: 'remove', id: t.id }))} aria-label="Tutup">
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// === ErrorBoundary ===
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    // Log to console but don't throw — surface to user via fallback UI
+    if (typeof console !== 'undefined') {
+      console.error('[ErrorBoundary]', error, info);
+    }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-boundary">
+          <div className="error-boundary-card">
+            <div className="eb-icon">
+              <Icon name="alert-triangle" size={32} />
+            </div>
+            <h2 className="eb-title">Oops — terjadi kesalahan</h2>
+            <p className="eb-desc">
+              Aplikasi mengalami error yang tidak terduga. Data Anda tersimpan di browser dan masih aman.
+              Coba muat ulang halaman.
+            </p>
+            {this.state.error && (
+              <details className="eb-details">
+                <summary>Detail teknis (untuk developer)</summary>
+                <pre>{String(this.state.error?.message || this.state.error)}</pre>
+              </details>
+            )}
+            <div className="eb-actions">
+              <button className="btn-ghost" onClick={() => { this.setState({ hasError: false, error: null }); }}>
+                Coba lagi
+              </button>
+              <button className="btn-primary" onClick={() => window.location.reload()}>
+                <Icon name="refresh-cw" size={14} /> Muat Ulang
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 window.fmtRp = fmtRp;
 window.fmtRpFull = fmtRpFull;
 window.fmtPct = fmtPct;
@@ -310,6 +416,121 @@ window.motionAnimate = motionAnimate;
 window.motionInView = motionInView;
 window.useInViewAnimate = useInViewAnimate;
 window.CountUp = CountUp;
+// === Glossary — A-Z dictionary of finance terms ===
+const GLOSSARY = [
+  { term: 'BOPTN', desc: 'Bantuan Operasional Perguruan Tinggi Negeri. Dana subsidi pemerintah pusat untuk PTN.', cat: 'Pendapatan' },
+  { term: 'CapEx', desc: 'Capital Expenditure — belanja modal untuk aset jangka panjang (gedung, lab, IT). Tidak dibebankan sekaligus, melainkan disusutkan.', cat: 'Pengeluaran' },
+  { term: 'CFI', desc: 'Composite Financial Index — skor agregat (0–100) dari 5 dimensi keuangan PT. Metodologi dari Tuck School of Business.', cat: 'Indeks' },
+  { term: 'CFI Score 5 Dimensi', desc: 'Likuiditas (35%), Fleksibilitas Keuangan (25%), Kapital Aset (20%), Beban Utang (15%), Diversifikasi Pendapatan (5%).', cat: 'Indeks' },
+  { term: 'DSCR', desc: 'Debt Service Coverage Ratio — EBITDA / Annual Debt Service. Target ≥ 2.0× untuk SANGAT BAIK, ≥ 1.5× untuk BAIK (LAMEMBA L7).', cat: 'Likuiditas' },
+  { term: 'EBITDA', desc: 'Earnings Before Interest, Taxes, Depreciation, Amortization. Proxy cash flow operasional: Total Pendapatan − Total Biaya + Depresiasi + Beban Bunga.', cat: 'Profitabilitas' },
+  { term: 'Endowment', desc: 'Dana abadi institusi. Pokok tidak boleh disentuh; hanya return investasi yang dipakai operasional. Spending rate sehat 4–6%.', cat: 'Neraca' },
+  { term: 'Expendable Net Assets', desc: 'Aset bersih yang bisa digunakan (tidak terikat). Komponen inti Primary Reserve & Viability Ratio.', cat: 'Neraca' },
+  { term: 'FTE', desc: 'Full-Time Equivalent. Standar perhitungan headcount mahasiswa/dosen yang mengkonversi paruh-waktu ke ekuivalen penuh.', cat: 'Demografi' },
+  { term: 'ICR', desc: 'Interest Coverage Ratio — EBITDA / Beban Bunga. Target ≥ 3.0× untuk SANGAT BAIK, ≥ 2.0× untuk BAIK.', cat: 'Likuiditas' },
+  { term: 'IKK', desc: 'Indeks Kinerja Keuangan — skala 0–4. Komposit dari Rasio Kemandirian, Surplus Operasional, Likuiditas, dan Beban Bunga. Target ≥ 2.5 (LAMEMBA L8).', cat: 'Indeks' },
+  { term: 'Kemandirian Keuangan', desc: 'Rasio Pendapatan Non-SPP / Total Pendapatan. Target sehat ≥ 40% — diversifikasi penting untuk stabilitas.', cat: 'Diversifikasi' },
+  { term: 'LAMEMBA', desc: 'Lembaga Akreditasi Mandiri Ekonomi Manajemen Bisnis Akuntansi. Standar akreditasi keuangan PT dengan 10 indikator wajib.', cat: 'Regulasi' },
+  { term: 'NACUBO', desc: 'National Association of College and University Business Officers (AS). Sumber best practice 29 rasio keuangan PT.', cat: 'Regulasi' },
+  { term: 'Net Tuition', desc: 'SPP/UKT Gross − Beasiswa & Financial Aid. Pendapatan SPP riil yang masuk kas.', cat: 'Pendapatan' },
+  { term: 'OpEx', desc: 'Operating Expense — beban operasional rutin (gaji, listrik, pemeliharaan). Dibebankan ke periode berjalan.', cat: 'Pengeluaran' },
+  { term: 'PkM', desc: 'Pengabdian kepada Masyarakat. Satu dari 3 fungsi Tridharma. Bobot LAMEMBA L10: 20%.', cat: 'Tridharma' },
+  { term: 'Predikat Akreditasi', desc: 'Klasifikasi: SANGAT BAIK (CFI ≥ 85 & LAMEMBA ≥ 8/10), BAIK (≥ 70 & ≥ 6/10), PERHATIAN (≥ 50), BERISIKO (< 50).', cat: 'Indeks' },
+  { term: 'Primary Reserve Ratio', desc: 'Expendable Net Assets / Total Pengeluaran. Mengukur seberapa lama institusi bisa survive tanpa pendapatan baru.', cat: 'Likuiditas' },
+  { term: 'RKAT', desc: 'Rencana Kerja & Anggaran Tahunan. Dokumen perencanaan keuangan PT untuk satu tahun anggaran.', cat: 'Anggaran' },
+  { term: 'REO', desc: 'Rasio Efisiensi Operasional — Biaya Ops Langsung / Total Pengeluaran. Target ≥ 65% (LAMEMBA L2).', cat: 'Pengeluaran' },
+  { term: 'RISDM', desc: 'Rasio Investasi Sumber Daya Manusia — Anggaran SDM / Total Pengeluaran. Target ≥ 15% (LAMEMBA L4).', cat: 'Pengeluaran' },
+  { term: 'RISP', desc: 'Rasio Investasi Sarana & Prasarana — (CapEx + Pemeliharaan) / Total Pengeluaran. Target ≥ 20% (LAMEMBA L5).', cat: 'Pengeluaran' },
+  { term: 'Rasio Likuiditas', desc: 'Aset Lancar / Kewajiban Jangka Pendek. Target ≥ 1.0× (LAMEMBA L9). Indikator kemampuan bayar utang jangka pendek.', cat: 'Likuiditas' },
+  { term: 'Return on Net Assets', desc: 'Change in Net Assets / Beginning Net Assets. Pertumbuhan ekuitas relatif. Target sehat ≥ 6%.', cat: 'Profitabilitas' },
+  { term: 'SFR', desc: 'Student-Faculty Ratio — Jumlah Mahasiswa / Jumlah Dosen Tetap. Range sehat 12:1–20:1.', cat: 'Demografi' },
+  { term: 'SPP/UKT', desc: 'Sumbangan Pembinaan Pendidikan / Uang Kuliah Tunggal. Pendapatan utama dari mahasiswa.', cat: 'Pendapatan' },
+  { term: 'TS, TS-1, TS-2', desc: 'Notasi tahun: TS = Tahun Sekarang (tahun pelaporan), TS-1 = setahun sebelumnya, TS-2 = dua tahun sebelumnya.', cat: 'Notasi' },
+  { term: 'Tridharma', desc: 'Tiga fungsi PT: Pendidikan, Penelitian, Pengabdian Masyarakat. Target alokasi LAMEMBA L10: 50% / 30% / 20%.', cat: 'Tridharma' },
+  { term: 'Varians Anggaran', desc: '(Realisasi − Rencana) / Rencana. Target ≤ ±10% (LAMEMBA L3). Varians besar menandakan perencanaan yang lemah.', cat: 'Anggaran' },
+];
+
+function GlossaryDrawer({ open, onClose }) {
+  const [search, setSearch] = React.useState('');
+  const [activeCat, setActiveCat] = React.useState('all');
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  const cats = ['all', ...new Set(GLOSSARY.map(g => g.cat))];
+  const filtered = GLOSSARY
+    .filter(g => activeCat === 'all' || g.cat === activeCat)
+    .filter(g => !search || g.term.toLowerCase().includes(search.toLowerCase()) || g.desc.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.term.localeCompare(b.term));
+  return (
+    <>
+      <div className="glossary-overlay" onClick={onClose} />
+      <aside className="glossary-drawer" role="dialog" aria-label="Istilah Keuangan">
+        <header className="glossary-head">
+          <div>
+            <div className="glossary-eyebrow">Glossary</div>
+            <h2 className="glossary-title">Istilah Keuangan</h2>
+            <p className="glossary-sub">{GLOSSARY.length} istilah dari LAMEMBA, NACUBO & finance PT</p>
+          </div>
+          <button className="modal-close glossary-close" onClick={onClose} aria-label="Tutup">
+            <Icon name="x" size={18} />
+          </button>
+        </header>
+        <div className="glossary-search-wrap">
+          <Icon name="compass" size={14} />
+          <input
+            type="text"
+            placeholder="Cari istilah atau penjelasan…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoFocus
+          />
+          {search && (
+            <button className="search-clear" onClick={() => setSearch('')}>
+              <Icon name="x" size={12} />
+            </button>
+          )}
+        </div>
+        <div className="glossary-cats">
+          {cats.map(c => (
+            <button
+              key={c}
+              className={'gc-chip' + (activeCat === c ? ' active' : '')}
+              onClick={() => setActiveCat(c)}
+            >
+              {c === 'all' ? 'Semua' : c}
+            </button>
+          ))}
+        </div>
+        <div className="glossary-list">
+          {filtered.length === 0 && (
+            <div className="glossary-empty">
+              Tidak ada istilah yang cocok dengan pencarian Anda.
+            </div>
+          )}
+          {filtered.map(g => (
+            <div key={g.term} className="glossary-item">
+              <div className="gi-header">
+                <span className="gi-term">{g.term}</span>
+                <span className="gi-cat">{g.cat}</span>
+              </div>
+              <p className="gi-desc">{g.desc}</p>
+            </div>
+          ))}
+        </div>
+      </aside>
+    </>
+  );
+}
+
 window.Logo = Logo;
 window.LogoWordmark = LogoWordmark;
 window.Icon = Icon;
+window.showToast = showToast;
+window.ToastHost = ToastHost;
+window.ErrorBoundary = ErrorBoundary;
+window.GlossaryDrawer = GlossaryDrawer;
+window.GLOSSARY = GLOSSARY;

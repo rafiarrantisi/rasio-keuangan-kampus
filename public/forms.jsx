@@ -1,7 +1,7 @@
 // Input forms for each wizard step
 
 // === FormPageHeader — large unified header for all 6 step forms ===
-function FormPageHeader({ letter, title, subtitle, completion }) {
+function FormPageHeader({ letter, title, subtitle, completion, onPasteClick }) {
   return (
     <div className="form-page-header">
       <div className="fph-row">
@@ -19,6 +19,13 @@ function FormPageHeader({ letter, title, subtitle, completion }) {
           </div>
         )}
       </div>
+      {onPasteClick && (
+        <div className="fph-actions">
+          <button type="button" className="btn-link fph-paste-btn" onClick={onPasteClick}>
+            <window.Icon name="folder-open" size={12} /> Tempel dari Excel
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -35,6 +42,137 @@ function FormTip({ children, variant = 'gold' }) {
 
 window.FormPageHeader = FormPageHeader;
 window.FormTip = FormTip;
+
+// === PasteFromExcel — modal for bulk pasting from spreadsheet ===
+function PasteFromExcel({ fields, data, onApply, onClose }) {
+  // fields is array of { k, label } — we'll show as expected order in 3 columns (TS, TS-1, TS-2)
+  const [raw, setRaw] = React.useState('');
+  const [direction, setDirection] = React.useState('cols'); // 'cols' = years in columns (TS,TS-1,TS-2), 'rows' = years in rows
+  const textareaRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (textareaRef.current) textareaRef.current.focus();
+  }, []);
+
+  // Parse raw text — split by lines, then by tab or multiple spaces
+  const parsed = React.useMemo(() => {
+    if (!raw.trim()) return null;
+    const lines = raw.trim().split(/\r?\n/).map(l => l.split(/\t|\s{2,}/).map(c => c.trim()));
+    return lines;
+  }, [raw]);
+
+  // Build preview rows: map field -> [TS, TS-1, TS-2]
+  const preview = React.useMemo(() => {
+    if (!parsed) return null;
+    const result = [];
+    const numParser = (s) => {
+      if (s === '' || s === '-' || s == null) return null;
+      // Handle Indonesian formats: 1.500.000.000, -1.500.000, 1,5%
+      let clean = String(s).replace(/[^\d.,\-]/g, '');
+      // If both . and , appear, assume . is thousands sep (Indonesian)
+      if (clean.includes('.') && clean.includes(',')) {
+        clean = clean.replace(/\./g, '').replace(',', '.');
+      } else if (clean.includes(',') && !clean.includes('.')) {
+        // Probably decimal comma
+        clean = clean.replace(',', '.');
+      } else {
+        clean = clean.replace(/\./g, '');
+      }
+      const n = parseFloat(clean);
+      return isNaN(n) ? null : Math.round(n);
+    };
+    fields.forEach((f, i) => {
+      if (i >= parsed.length) return;
+      const line = parsed[i];
+      const tsVal = numParser(line[0]);
+      const ts1Val = numParser(line[1]);
+      const ts2Val = numParser(line[2]);
+      result.push({ k: f.k, label: f.label, ts: tsVal, ts1: ts1Val, ts2: ts2Val });
+    });
+    return result;
+  }, [parsed, fields]);
+
+  const handleApply = () => {
+    if (!preview) return;
+    const changes = preview.filter(p => p.ts != null || p.ts1 != null || p.ts2 != null);
+    onApply(changes);
+    window.showToast?.(`${changes.length} field di-import dari Excel`, { variant: 'success' });
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box paste-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3><window.Icon name="folder-open" size={16} /> Tempel dari Excel / Spreadsheet</h3>
+          <button className="modal-close" onClick={onClose} aria-label="Tutup">
+            <window.Icon name="x" size={16} />
+          </button>
+        </div>
+
+        <div className="paste-instructions">
+          <p>
+            <strong>Cara pakai:</strong> Di Excel/Sheets, blok kolom data 3 tahun
+            (TS, TS-1, TS-2) sebanyak <b>{fields.length} baris</b> sesuai urutan field di bawah.
+            Copy (Ctrl+C), lalu paste ke kotak di bawah.
+          </p>
+        </div>
+
+        <label className="modal-label">Data dari Excel</label>
+        <textarea
+          ref={textareaRef}
+          className="modal-input paste-textarea"
+          placeholder={"Paste data dengan format:\nTS\tTS-1\tTS-2\nbaris-1: 60000000000\t55000000000\t50000000000\nbaris-2: -15000000000\t-14000000000\t-13000000000\n..."}
+          value={raw}
+          onChange={e => setRaw(e.target.value)}
+          rows={6}
+        />
+
+        {preview && preview.length > 0 && (
+          <div className="paste-preview">
+            <div className="paste-preview-head">
+              <window.Icon name="check" size={13} />
+              Preview ({preview.filter(p => p.ts != null || p.ts1 != null || p.ts2 != null).length} field terdeteksi)
+            </div>
+            <div className="paste-preview-table">
+              <div className="ppt-row ppt-head">
+                <div>Field</div>
+                <div>TS</div>
+                <div>TS-1</div>
+                <div>TS-2</div>
+              </div>
+              {preview.slice(0, 10).map(p => (
+                <div key={p.k} className="ppt-row">
+                  <div className="ppt-label">{p.label}</div>
+                  <div className="mono">{p.ts != null ? p.ts.toLocaleString('id-ID') : '—'}</div>
+                  <div className="mono">{p.ts1 != null ? p.ts1.toLocaleString('id-ID') : '—'}</div>
+                  <div className="mono">{p.ts2 != null ? p.ts2.toLocaleString('id-ID') : '—'}</div>
+                </div>
+              ))}
+              {preview.length > 10 && (
+                <div className="ppt-row ppt-more">…dan {preview.length - 10} field lainnya</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button type="button" className="btn-ghost" onClick={onClose}>Batal</button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleApply}
+            disabled={!preview || preview.length === 0}
+          >
+            <window.Icon name="check" size={14} /> Apply ke Form
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.PasteFromExcel = PasteFromExcel;
 
 function CurrencyInput({ value, onChange, warn, allowNegative }) {
   const [str, setStr] = React.useState('');
@@ -98,6 +236,19 @@ function FormHeader() {
   </>);
 }
 
+// === Helper: usePasteHandler — toggles paste modal + applies values ===
+function usePasteHandler(fields, onChange) {
+  const [pasteOpen, setPasteOpen] = React.useState(false);
+  const handleApply = (changes) => {
+    changes.forEach(c => {
+      if (c.ts != null) onChange('TS', c.k, c.ts);
+      if (c.ts1 != null) onChange('TS-1', c.k, c.ts1);
+      if (c.ts2 != null) onChange('TS-2', c.k, c.ts2);
+    });
+  };
+  return { pasteOpen, openPaste: () => setPasteOpen(true), closePaste: () => setPasteOpen(false), handleApply };
+}
+
 // === Pendapatan ===
 function StepRev({ data, onChange }) {
   const fields = [
@@ -114,6 +265,7 @@ function StepRev({ data, onChange }) {
   const netTuition = (d) => (d.revSppGross || 0) + (d.revBeasiswa || 0);
   const totalRev = (d) => fields.reduce((s, f) => s + (d[f.k] || 0), 0);
   const filled = fields.filter(f => data.TS && data.TS[f.k]).length;
+  const paste = usePasteHandler(fields, onChange);
   return (
     <div className="form-page-card">
       <FormPageHeader
@@ -121,7 +273,9 @@ function StepRev({ data, onChange }) {
         title="Pendapatan Institusi"
         subtitle="Sumber pendapatan untuk 3 tahun terakhir (TS, TS−1, TS−2). Beasiswa diisi sebagai nilai negatif untuk dipotong dari SPP Gross."
         completion={{ filled, total: fields.length }}
+        onPasteClick={paste.openPaste}
       />
+      {paste.pasteOpen && <window.PasteFromExcel fields={fields} data={data} onApply={paste.handleApply} onClose={paste.closePaste} />}
       <div className="field-grid">
         <FormHeader />
         {fields.map(f => (
@@ -155,6 +309,7 @@ function StepExp({ data, onChange }) {
   ];
   const totalExp = (d) => (d.expOps||0)+(d.expAdmin||0)+(d.expSDM||0)+(d.expCapex||0)+(d.expMaint||0)+(d.expFaculty||0)+(d.expDepr||0)+(d.expInterest||0)+(d.expLain||0);
   const filled = fields.filter(f => data.TS && data.TS[f.k]).length;
+  const paste = usePasteHandler(fields, onChange);
   return (
     <div className="form-page-card">
       <FormPageHeader
@@ -162,7 +317,9 @@ function StepExp({ data, onChange }) {
         title="Pengeluaran Institusi"
         subtitle="Komponen biaya operasional. Biaya Instruksi adalah info-only — sudah termasuk dalam Biaya Operasional Langsung, tidak dijumlahkan ulang."
         completion={{ filled, total: fields.length }}
+        onPasteClick={paste.openPaste}
       />
+      {paste.pasteOpen && <window.PasteFromExcel fields={fields} data={data} onApply={paste.handleApply} onClose={paste.closePaste} />}
       <div className="field-grid">
         <FormHeader />
         {fields.map(f => (
@@ -211,6 +368,7 @@ function StepBS({ data, onChange }) {
   </>);
   const allFields = [...lancar, ...tetap, ...kwj, ...eq, ...liq];
   const filled = allFields.filter(f => data.TS && data.TS[f.k]).length;
+  const paste = usePasteHandler(allFields, onChange);
   return (
     <div className="form-page-card">
       <FormPageHeader
@@ -218,7 +376,9 @@ function StepBS({ data, onChange }) {
         title="Neraca Keuangan"
         subtitle="Posisi aset, kewajiban, dan ekuitas untuk 3 tahun. Komponen liquidity & debt service dipakai untuk perhitungan DSCR (LAMEMBA L7)."
         completion={{ filled, total: allFields.length }}
+        onPasteClick={paste.openPaste}
       />
+      {paste.pasteOpen && <window.PasteFromExcel fields={allFields} data={data} onApply={paste.handleApply} onClose={paste.closePaste} />}
       <div className="field-grid">
         <FormHeader />
         {renderGroup('Aset Lancar', lancar)}
@@ -692,6 +852,7 @@ function StepPeople({ data, onChange }) {
     { k: 'endowReturn', label: 'Annual Investment Return (Endowment)', info: 'Hasil investasi tahunan endowment. Sehat > 8%.' },
   ];
   const filled = fields.filter(f => data.TS && data.TS[f.k]).length;
+  const paste = usePasteHandler(fields, onChange);
   return (
     <div className="form-page-card">
       <FormPageHeader
@@ -699,7 +860,9 @@ function StepPeople({ data, onChange }) {
         title="Mahasiswa, Dosen & Endowment"
         subtitle="Data demografis institusi & arus dana abadi. Diperlukan untuk Student-Faculty Ratio, Cost per Student, dan Endowment Spending Rate."
         completion={{ filled, total: fields.length }}
+        onPasteClick={paste.openPaste}
       />
+      {paste.pasteOpen && <window.PasteFromExcel fields={fields} data={data} onApply={paste.handleApply} onClose={paste.closePaste} />}
       <div className="field-grid">
         <FormHeader />
         {fields.map(f => <FieldRow key={f.k} k={f.k} label={f.label} info={f.info} data={data} onChange={onChange} />)}

@@ -39,6 +39,7 @@ function App() {
   const [activeProfile, setActiveProfile] = useState(null); // { id, name }
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
   const saveTimer  = useRef(null);
   const backendRef = useRef(null);
 
@@ -162,7 +163,10 @@ function App() {
     setData(JSON.parse(JSON.stringify(window.PRESETS[key])));
     setStep(1);
   };
-  const reset = () => setData(JSON.parse(JSON.stringify(EMPTY_DATA)));
+  const reset = () => {
+    setData(JSON.parse(JSON.stringify(EMPTY_DATA)));
+    window.showToast?.('Data direset ke kosong', { variant: 'info' });
+  };
   const copyToTS = (fromYr) => {
     setData(d => ({ ...d, TS: { ...d.TS, ...d[fromYr] } }));
   };
@@ -185,8 +189,12 @@ function App() {
         setActiveProfile({ id, name: profileName });
         setShowSaveDialog(false);
         setSaveStatus('saved');
+        window.showToast?.('Project "' + profileName + '" tersimpan', { variant: 'success' });
       })
-      .catch(() => setSaveStatus('offline'));
+      .catch((e) => {
+        setSaveStatus('offline');
+        window.showToast?.('Gagal menyimpan — server tidak tersedia', { variant: 'error' });
+      });
   };
 
   const handleLoadProfile = (profile) => {
@@ -196,12 +204,22 @@ function App() {
         setActiveProfile({ id: p.id, name: p.name });
         setShowProfileModal(false);
         setStep(1);
+        window.showToast?.('Project "' + p.name + '" dimuat', { variant: 'success' });
       })
-      .catch(() => {});
+      .catch(() => {
+        window.showToast?.('Gagal memuat project', { variant: 'error' });
+      });
   };
 
   const handleDeleteProfile = (id) => {
-    window.apiDeleteProfile(id).catch(() => {});
+    const name = activeProfile?.id === id ? activeProfile.name : 'Project';
+    window.apiDeleteProfile(id)
+      .then(() => {
+        window.showToast?.('Project dihapus', { variant: 'info' });
+      })
+      .catch(() => {
+        window.showToast?.('Gagal menghapus project', { variant: 'error' });
+      });
     if (activeProfile?.id === id) setActiveProfile(null);
   };
 
@@ -258,7 +276,8 @@ function App() {
     <div className={'app view-app density-' + tweak.density} style={{'--accent': tweak.accentColor}}>
       <Header step={step} onStep={setStep} onReset={reset} onTweaks={() => setTweaksOpen(true)} saveStatus={saveStatus}
               activeProfile={activeProfile} onSave={() => activeProfile ? handleSaveProfile() : setShowSaveDialog(true)}
-              onSaveAs={() => setShowSaveDialog(true)} onProjects={goProjects} onBrandClick={goLanding} />
+              onSaveAs={() => setShowSaveDialog(true)} onProjects={goProjects} onBrandClick={goLanding}
+              onGlossary={() => setGlossaryOpen(true)} />
       <Sidebar step={step} onStep={setStep} result={result} hasData={hasAnyData(data)} />
       <main className="main">
         {step === 0 && <StepStart onPreset={loadPreset} onBlank={() => { reset(); setStep(1); }} />}
@@ -274,6 +293,7 @@ function App() {
         {step !== 0 && <StepNav step={step} onStep={setStep} onCopyTS1={() => copyToTS('TS-1')} />}
       </main>
       <window.RatioDrawer ratio={drawerRatio} onClose={() => setDrawerRatio(null)} />
+      <window.GlossaryDrawer open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
       {showSaveDialog && <SaveDialog onSave={handleSaveProfile} onClose={() => setShowSaveDialog(false)} defaultName={activeProfile?.name || ''} />}
       {showProfileModal && <ProfileModal onLoad={handleLoadProfile} onDelete={handleDeleteProfile} onClose={() => setShowProfileModal(false)} />}
       {tweaksOpen && <TweaksPanel title="Tweaks" onClose={() => setTweaksOpen(false)}>
@@ -297,7 +317,7 @@ function hasAnyData(d) {
   return Object.values(d.TS).some(v => v && v !== 0);
 }
 
-function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onProjects, onBrandClick }) {
+function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onProjects, onBrandClick, onGlossary }) {
   return (
     <header className="topbar">
       <button className="brand brand-btn" onClick={onBrandClick} title="Kembali ke beranda" type="button">
@@ -314,6 +334,7 @@ function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, on
         {saveStatus === 'saving'  && <span className="save-status saving">Menyimpan…</span>}
         {saveStatus === 'saved'   && <span className="save-status saved">Tersimpan</span>}
         {saveStatus === 'offline' && <span className="save-status offline" title="Server tidak tersedia — data disimpan lokal">Offline</span>}
+        <button className="btn-ghost" onClick={onGlossary} title="Istilah Keuangan"><window.Icon name="info" size={14} /> Istilah</button>
         <button className="btn-ghost" onClick={onProjects}><window.Icon name="folder-open" size={14} /> Project Saya</button>
         <button className="btn-ghost" onClick={onSave}><window.Icon name="save" size={14} /> Simpan</button>
         <button className="btn-ghost" onClick={onSaveAs}><window.Icon name="edit-2" size={14} /> Simpan Sebagai…</button>
@@ -1131,4 +1152,9 @@ function HistoricalTab({ result, onPickRatio }) {
 }
 window.HistoricalTab = HistoricalTab;
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <window.ErrorBoundary>
+    <App />
+    <window.ToastHost />
+  </window.ErrorBoundary>
+);

@@ -75,7 +75,8 @@ function computeAll(data) {
       formula: 'Change in Net Assets ÷ Beginning Net Assets',
       v, v1, v2, target: '> 2%', status,
       desc: 'Pertumbuhan aset bersih institusi tahun berjalan, semacam ROE versi non-profit.',
-      score: v >= 0.02 ? 100 : v <= 0 ? 0 : (v / 0.02) * 100,
+      // Excel: =IF(v>=0.02, 100, IF(v<=0, 0, v/0.2*100)) — pass at 2%, gradient via 20% max
+      score: v >= 0.02 ? 100 : v <= 0 ? 0 : (v / 0.2) * 100,
       format: 'pct', good: 'high',
       benchmarks: { SANGAT_BAIK: 0.10, BAIK: 0.0795, PERHATIAN: 0.021, BERISIKO: -0.168 },
     });
@@ -90,7 +91,8 @@ function computeAll(data) {
       formula: '(Op. Revenue − Op. Expenses) ÷ Op. Revenue',
       v, v1, v2, target: '> 2%', status,
       desc: 'Apakah operasional menghasilkan surplus? Indikator kesehatan margin operasi.',
-      score: v >= 0.02 ? 100 : v <= 0 ? 0 : (v / 0.02) * 100,
+      // Excel: =IF(v>=0.02, 100, IF(v<=0, 0, v/0.2*100)) — pass at 2%, gradient via 20% max
+      score: v >= 0.02 ? 100 : v <= 0 ? 0 : (v / 0.2) * 100,
       format: 'pct', good: 'high',
       benchmarks: { SANGAT_BAIK: 0.052, BAIK: 0.026, PERHATIAN: 0.146, BERISIKO: -0.10 },
     });
@@ -184,7 +186,8 @@ function computeAll(data) {
       formula: 'Biaya Administrasi ÷ Total Op. Expenses',
       v, v1, v2, target: '< 12%', status,
       desc: 'Beban overhead administrasi. Semakin kecil semakin efisien.',
-      score: v <= 0.12 ? 100 : v >= 0.15 ? 0 : (0.15 - v) / 0.03 * 100,
+      // Excel: =IF(v <= 0.15, 100, 0) — binary at 15% threshold
+      score: v <= 0.15 ? 100 : 0,
       format: 'pct', good: 'low',
       benchmarks: { SANGAT_BAIK: 0.067, BAIK: 0.071, PERHATIAN: 0.159, BERISIKO: 0.215 },
     });
@@ -637,7 +640,8 @@ function computeAll(data) {
     { k: 'Likuiditas', weight: 0.25, ratios: ['liquidity', 'daysCash', 'cashDebt'], pic: 'Treasurer' },
     { k: 'Efisiensi Operasi', weight: 0.20, ratios: ['opMargin', 'adminExp', 'tuitDep'], pic: 'Budget Dir.' },
     { k: 'Manajemen Utang', weight: 0.15, ratios: ['dscr', 'debtAssets', 'icr'], pic: 'CFO' },
-    { k: 'Diversifikasi Pendapatan', weight: 0.05, ratios: ['L1_RK', 'revConc', 'giftRev'], pic: 'Dev. Office' },
+    // Excel SCORECARD CFI uses J39:J41 = revConc, giftRev, researchRev (RK is LAMEMBA, not in this avg)
+    { k: 'Diversifikasi Pendapatan', weight: 0.05, ratios: ['revConc', 'giftRev', 'researchRev'], pic: 'Dev. Office' },
   ].map(c => ({ ...c, score: avgScore(c.ratios) }));
   const CFI_total = scorecard.reduce((s, c) => s + c.weight * c.score, 0);
 

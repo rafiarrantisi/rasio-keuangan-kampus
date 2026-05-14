@@ -642,10 +642,10 @@ function computeAll(data) {
   const CFI_total = scorecard.reduce((s, c) => s + c.weight * c.score, 0);
 
   // === Predikat (verdict) ===
-  // L7 RBM has status 'info' (validated against institution's SPMI, not auto-checkable).
-  // Count 'info' as fulfilled too — otherwise LAMEMBA max is 9/10 which conflicts
-  // with the official "10 indikator" framing and makes SANGAT_BAIK unreachable.
-  const lamebaTerpenuhi = ratios.filter(r => r.lameba && (r.status === 'ok' || r.status === 'info')).length;
+  // L7 RBM has status 'info' — validated against institution's SPMI standard,
+  // not auto-checkable. Excel reference treats L7 as not counted in tally
+  // (BAIK preset shows 6/10 with L7 'info' excluded). Keep faithful to that.
+  const lamebaTerpenuhi = ratios.filter(r => r.lameba && r.status === 'ok').length;
   let verdict;
   if (CFI_total >= 85 && lamebaTerpenuhi >= 8) verdict = 'SANGAT_BAIK';
   else if (CFI_total >= 70 && lamebaTerpenuhi >= 6) verdict = 'BAIK';

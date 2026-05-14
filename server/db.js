@@ -142,12 +142,73 @@ function saveProfile(id, name, data, extras = {}) {
     updated_at: now,
   };
   if (idx >= 0) {
-    profiles[idx] = { ...profiles[idx], ...baseFields };
+    // Append snapshot before overwriting (max 20 snapshots per project)
+    const prev = profiles[idx];
+    if (prev.data && JSON.stringify(prev.data) !== JSON.stringify(data)) {
+      const snapshots = Array.isArray(prev.snapshots) ? prev.snapshots : [];
+      snapshots.push({
+        ts: prev.updated_at || now,
+        data: prev.data,
+        result_summary: prev.result_summary || null,
+        label: extras.snapshot_label || null,
+      });
+      // Keep only most recent 20
+      while (snapshots.length > 20) snapshots.shift();
+      profiles[idx] = { ...prev, ...baseFields, snapshots };
+    } else {
+      profiles[idx] = { ...prev, ...baseFields };
+    }
   } else {
-    profiles.push({ ...baseFields, created_at: now });
+    profiles.push({ ...baseFields, created_at: now, snapshots: [] });
   }
   writeProfiles(profiles);
   return now;
+}
+
+function getSnapshots(id) {
+  const proj = loadProfiles().find(p => p.id === id);
+  if (!proj) return [];
+  return Array.isArray(proj.snapshots) ? proj.snapshots : [];
+}
+
+function restoreSnapshot(id, snapshotTs) {
+  const profiles = loadProfiles();
+  const idx = profiles.findIndex(p => p.id === id);
+  if (idx < 0) return null;
+  const proj = profiles[idx];
+  const snapshots = Array.isArray(proj.snapshots) ? proj.snapshots : [];
+  const snap = snapshots.find(s => s.ts === snapshotTs);
+  if (!snap) return null;
+  const now = new Date().toISOString();
+  // Save current as a snapshot before restoring
+  const newSnapshots = [...snapshots];
+  newSnapshots.push({
+    ts: proj.updated_at || now,
+    data: proj.data,
+    result_summary: proj.result_summary || null,
+    label: 'Auto-snapshot sebelum restore',
+  });
+  while (newSnapshots.length > 20) newSnapshots.shift();
+  profiles[idx] = {
+    ...proj,
+    data: snap.data,
+    result_summary: snap.result_summary,
+    updated_at: now,
+    snapshots: newSnapshots,
+  };
+  writeProfiles(profiles);
+  return profiles[idx];
+}
+
+function deleteSnapshot(id, snapshotTs) {
+  const profiles = loadProfiles();
+  const idx = profiles.findIndex(p => p.id === id);
+  if (idx < 0) return false;
+  const proj = profiles[idx];
+  const snapshots = Array.isArray(proj.snapshots) ? proj.snapshots : [];
+  profiles[idx] = { ...proj, snapshots: snapshots.filter(s => s.ts !== snapshotTs) };
+  writeProfiles(profiles);
+  return true;
 }
 
 function deleteProfile(id) {
@@ -183,4 +244,5 @@ module.exports = {
   init, getState, saveState,
   getPresetList, getPreset,
   getProfiles, getProfile, saveProfile, deleteProfile, duplicateProfile,
+  getSnapshots, restoreSnapshot, deleteSnapshot,
 };

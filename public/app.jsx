@@ -289,7 +289,7 @@ function App() {
         {step === 6 && <window.StepPeople data={data} onChange={onChange} />}
         {step === 7 && <ResultPage result={result} data={data} tab={resultTab} setTab={setResultTab}
                                    whatIf={whatIf} setWhatIf={setWhatIf} onPickRatio={setDrawerRatio}
-                                   showRecs={tweak.showRecommendations} />}
+                                   showRecs={tweak.showRecommendations} activeProfile={activeProfile} />}
         {step !== 0 && <StepNav step={step} onStep={setStep} onCopyTS1={() => copyToTS('TS-1')} />}
       </main>
       <window.RatioDrawer ratio={drawerRatio} onClose={() => setDrawerRatio(null)} />
@@ -434,7 +434,7 @@ function StepStart({ onPreset, onBlank }) {
 }
 
 // =============== RESULT PAGE ===============
-function ResultPage({ result, data, tab, setTab, whatIf, setWhatIf, onPickRatio, showRecs }) {
+function ResultPage({ result, data, tab, setTab, whatIf, setWhatIf, onPickRatio, showRecs, activeProfile }) {
   const tabs = [
     { id: 'overview', label: 'Ringkasan' },
     { id: 'lameba', label: 'LAMEMBA (10)' },
@@ -447,39 +447,239 @@ function ResultPage({ result, data, tab, setTab, whatIf, setWhatIf, onPickRatio,
   ];
   return (
     <div className="result-page">
-      <window.VerdictHero verdict={result.verdict} CFI={result.CFI_total} lameba={result.lamebaTerpenuhi} />
-      <div className="result-tabs-row">
-        <div className="result-tabs">
-          {tabs.map(t => (
-            <button key={t.id} className={'rt ' + (tab === t.id ? 'active' : '')} onClick={() => setTab(t.id)}>
-              {t.label}
-            </button>
-          ))}
+      {/* Screen-only view (tabs) */}
+      <div className="screen-only">
+        <window.VerdictHero verdict={result.verdict} CFI={result.CFI_total} lameba={result.lamebaTerpenuhi} />
+        <div className="result-tabs-row">
+          <div className="result-tabs">
+            {tabs.map(t => (
+              <button key={t.id} className={'rt ' + (tab === t.id ? 'active' : '')} onClick={() => setTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <button className="btn-print no-print" onClick={() => window.print()} title="Cetak / Export PDF">
+            <window.Icon name="printer" size={14} /> Cetak / PDF
+          </button>
         </div>
-        <button className="btn-print no-print" onClick={() => window.print()} title="Cetak / Export PDF">
-          <window.Icon name="printer" size={14} /> Cetak / PDF
-        </button>
+        <div className="result-body">
+          {tab === 'overview' && <OverviewTab result={result} data={data} onPickRatio={onPickRatio} />}
+          {tab === 'lameba' && <LamebaTab result={result} onPickRatio={onPickRatio} />}
+          {tab === 'ratios' && <RatiosTab result={result} onPickRatio={onPickRatio} />}
+          {tab === 'composition' && <CompositionTab data={data} result={result} />}
+          {tab === 'compare' && <CompareTab result={result} />}
+          {tab === 'historical' && <HistoricalTab result={result} onPickRatio={onPickRatio} />}
+          {tab === 'whatif' && <WhatIfTab data={data} whatIf={whatIf} setWhatIf={setWhatIf} result={result} />}
+          {tab === 'recs' && (showRecs ? <RecsTab result={result} data={data} /> : <div className="empty">Rekomendasi dinonaktifkan dari panel Tweaks.</div>)}
+        </div>
       </div>
-      <div className="result-body">
-        {tab === 'overview' && <OverviewTab result={result} data={data} onPickRatio={onPickRatio} />}
-        {tab === 'lameba' && <LamebaTab result={result} onPickRatio={onPickRatio} />}
-        {tab === 'ratios' && <RatiosTab result={result} onPickRatio={onPickRatio} />}
-        {tab === 'composition' && <CompositionTab data={data} result={result} />}
-        {tab === 'compare' && <CompareTab result={result} />}
-        {tab === 'historical' && <HistoricalTab result={result} onPickRatio={onPickRatio} />}
-        {tab === 'whatif' && <WhatIfTab data={data} whatIf={whatIf} setWhatIf={setWhatIf} result={result} />}
-        {tab === 'recs' && (showRecs ? <RecsTab result={result} data={data} /> : <div className="empty">Rekomendasi dinonaktifkan dari panel Tweaks.</div>)}
-      </div>
+
+      {/* Print-only comprehensive report */}
+      <PrintReport result={result} data={data} activeProfile={activeProfile} showRecs={showRecs} />
+    </div>
+  );
+}
+
+function PrintReport({ result, data, activeProfile, showRecs }) {
+  const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const projectName = activeProfile?.name || 'Project Tanpa Nama';
+  const verdictInfo = window.VERDICT_INFO[result.verdict] || {};
+
+  // Build narrative
+  const narrative = window.buildNarrative ? window.buildNarrative(result, data) : null;
+
+  return (
+    <div className="print-only print-report">
+      {/* === COVER PAGE === */}
+      <section className="print-cover">
+        <div className="print-cover-top">
+          <window.Logo size={56} variant="light" />
+          <div className="print-cover-brand">
+            <div className="print-cover-brand-name">Rasio Keuangan Kampus</div>
+            <div className="print-cover-brand-sub">Simulator Akreditasi LAMEMBA · Composite Financial Index</div>
+          </div>
+        </div>
+        <div className="print-cover-body">
+          <div className="print-cover-eyebrow">Laporan Analisis Keuangan</div>
+          <h1 className="print-cover-title">{projectName}</h1>
+          <div className="print-cover-meta">
+            <span>Dicetak {today}</span>
+            <span>·</span>
+            <span>Tahun Pelaporan: TS</span>
+          </div>
+          <div className="print-cover-verdict">
+            <div className="pcv-label">Predikat Akreditasi Keuangan</div>
+            <div className={'pcv-pill v-' + result.verdict}>{verdictInfo.label || result.verdict}</div>
+            <p className="pcv-desc">{verdictInfo.sub}</p>
+          </div>
+          <div className="print-cover-kpis">
+            <div className="pck-item">
+              <div className="pck-label">CFI Total</div>
+              <div className="pck-val">{result.CFI_total.toFixed(1)} <span>/100</span></div>
+            </div>
+            <div className="pck-item">
+              <div className="pck-label">LAMEMBA</div>
+              <div className="pck-val">{result.lamebaTerpenuhi}<span>/10</span></div>
+            </div>
+            <div className="pck-item">
+              <div className="pck-label">IKK</div>
+              <div className="pck-val">{(result.ratios.find(r => r.id === 'L8_IKK')?.v || 0).toFixed(2)} <span>/4</span></div>
+            </div>
+            <div className="pck-item">
+              <div className="pck-label">Mahasiswa Aktif</div>
+              <div className="pck-val">{(data.TS?.mhsCount || 0).toLocaleString('id-ID')}</div>
+            </div>
+          </div>
+        </div>
+        <div className="print-cover-foot">
+          <span>Standar metodologi: LAMEMBA 2024 · CFI (Tuck) · NACUBO</span>
+          <span>Disclaimer: Alat bantu analisis — bukan substitusi audit resmi</span>
+        </div>
+      </section>
+
+      {/* === EXECUTIVE SUMMARY === */}
+      <section className="print-section print-page-break">
+        <div className="print-section-head">
+          <div className="print-section-eyebrow">Halaman 2 · Ringkasan Eksekutif</div>
+          <h2 className="print-section-title">Ringkasan Eksekutif</h2>
+        </div>
+        {narrative && (
+          <div className="print-narrative">
+            {narrative.headline && <p className="pn-headline">{narrative.headline}</p>}
+            {narrative.paragraphs && narrative.paragraphs.map((p, i) => (
+              <p key={i} className="pn-paragraph">{p}</p>
+            ))}
+            {narrative.callouts && narrative.callouts.length > 0 && (
+              <div className="pn-callouts">
+                {narrative.callouts.map((c, i) => (
+                  <div key={i} className={'pn-callout pn-callout-' + c.type}>
+                    <strong>{c.title}:</strong> {c.body}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {!narrative && window.buildExecSummary && (
+          <p className="print-summary">{window.buildExecSummary(result, data)}</p>
+        )}
+      </section>
+
+      {/* === DETAIL: All tabs sequentially === */}
+      <section className="print-section print-page-break">
+        <div className="print-section-head">
+          <div className="print-section-eyebrow">Halaman 3 · Overview</div>
+          <h2 className="print-section-title">Ringkasan Visual</h2>
+        </div>
+        <OverviewTab result={result} data={data} onPickRatio={() => {}} />
+      </section>
+
+      <section className="print-section print-page-break">
+        <div className="print-section-head">
+          <div className="print-section-eyebrow">10 Indikator LAMEMBA</div>
+          <h2 className="print-section-title">Daftar Indikator Wajib Akreditasi</h2>
+        </div>
+        <LamebaTab result={result} onPickRatio={() => {}} />
+      </section>
+
+      <section className="print-section print-page-break">
+        <div className="print-section-head">
+          <div className="print-section-eyebrow">29 Rasio Keuangan</div>
+          <h2 className="print-section-title">Daftar Rasio Lengkap</h2>
+        </div>
+        <RatiosTab result={result} onPickRatio={() => {}} />
+      </section>
+
+      <section className="print-section print-page-break">
+        <div className="print-section-head">
+          <div className="print-section-eyebrow">Komposisi</div>
+          <h2 className="print-section-title">Komposisi Pendapatan & Pengeluaran</h2>
+        </div>
+        <CompositionTab data={data} result={result} />
+      </section>
+
+      <section className="print-section print-page-break">
+        <div className="print-section-head">
+          <div className="print-section-eyebrow">Benchmark</div>
+          <h2 className="print-section-title">Perbandingan vs Predikat</h2>
+        </div>
+        <CompareTab result={result} />
+      </section>
+
+      <section className="print-section print-page-break">
+        <div className="print-section-head">
+          <div className="print-section-eyebrow">Historis 3 Tahun</div>
+          <h2 className="print-section-title">Tren TS-2 → TS-1 → TS</h2>
+        </div>
+        <HistoricalTab result={result} onPickRatio={() => {}} />
+      </section>
+
+      {showRecs && (
+        <section className="print-section print-page-break">
+          <div className="print-section-head">
+            <div className="print-section-eyebrow">Rekomendasi</div>
+            <h2 className="print-section-title">Rekomendasi & Tindak Lanjut</h2>
+          </div>
+          <RecsTab result={result} data={data} />
+        </section>
+      )}
+
+      {/* === Print footer signature page === */}
+      <section className="print-signature print-page-break">
+        <div className="print-sig-block">
+          <h3>Lembar Pengesahan</h3>
+          <p>Laporan ini disusun oleh:</p>
+          <div className="print-sig-grid">
+            <div className="print-sig-box">
+              <div className="psg-line"></div>
+              <div className="psg-label">Penyusun</div>
+              <div className="psg-sub">(Nama & Jabatan)</div>
+            </div>
+            <div className="print-sig-box">
+              <div className="psg-line"></div>
+              <div className="psg-label">Disetujui Oleh</div>
+              <div className="psg-sub">(Nama & Jabatan)</div>
+            </div>
+          </div>
+          <div className="print-sig-foot">
+            <div>Tanggal: {today}</div>
+            <div>Project: {projectName}</div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
 function OverviewTab({ result, data, onPickRatio }) {
   const ikk = result.ratios.find(r => r.id === 'L8_IKK');
-  const execSummary = window.buildExecSummary ? window.buildExecSummary(result, data) : null;
+  const narrative = window.buildNarrative ? window.buildNarrative(result, data) : null;
+  const execSummary = !narrative && window.buildExecSummary ? window.buildExecSummary(result, data) : null;
   return (
     <div className="overview-grid">
-      {execSummary && (
+      {narrative && (
+        <div className="exec-summary-card span-2 narrative-card">
+          <div className="es-eyebrow"><window.Icon name="sparkles" size={11} /> Ringkasan Eksekutif</div>
+          {narrative.headline && <p className="narrative-headline">{narrative.headline}</p>}
+          {narrative.paragraphs && narrative.paragraphs.slice(0, 2).map((p, i) => (
+            <p key={i} className="es-text narrative-paragraph">{p}</p>
+          ))}
+          {narrative.callouts && narrative.callouts.length > 0 && (
+            <div className="narrative-callouts">
+              {narrative.callouts.slice(0, 2).map((c, i) => (
+                <div key={i} className={'narrative-callout nc-' + c.type}>
+                  <div className="nc-title">
+                    <window.Icon name={c.type === 'risk' ? 'alert-triangle' : c.type === 'warning' ? 'alert-triangle' : c.type === 'positive' ? 'check' : 'info'} size={12} />
+                    {c.title}
+                  </div>
+                  <div className="nc-body">{c.body}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {execSummary && !narrative && (
         <div className="exec-summary-card span-2">
           <div className="es-eyebrow">Ringkasan Eksekutif</div>
           <p className="es-text">{execSummary}</p>

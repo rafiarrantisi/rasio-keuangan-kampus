@@ -432,6 +432,41 @@ function MethodBadge({ title, sub, pct, icon }) {
   );
 }
 
+// === Template Download Helper ===
+function downloadTemplate(format) {
+  if (!window.FIELDS) return;
+  const fields = Object.entries(window.FIELDS).filter(([k, f]) => !f.informational);
+  const lines = [];
+  // Header
+  lines.push(['Komponen', 'Kunci', 'Grup', 'TS (Tahun Ini)', 'TS-1', 'TS-2', 'Catatan Pengisian']);
+  // Field rows
+  fields.forEach(([k, f]) => {
+    lines.push([f.label, k, f.group, '', '', '', f.info || '']);
+  });
+  // Build CSV
+  const csv = lines.map(row =>
+    row.map(cell => {
+      const s = String(cell || '');
+      // Quote if contains comma, quote, or newline
+      if (/[",\n;]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }).join(';') // Use semicolon for Indonesian Excel compat
+  ).join('\r\n');
+  // Add BOM for UTF-8
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'template-rasio-keuangan-kampus.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  if (window.showToast) {
+    window.showToast('Template CSV diunduh — buka di Excel/Sheets', { variant: 'success' });
+  }
+}
+
 function FinalCTA({ onStart }) {
   return (
     <section className="landing-section landing-final-cta">
@@ -443,6 +478,11 @@ function FinalCTA({ onStart }) {
             <p className="fcb-p">
               Tanpa instalasi, tanpa akun. Data tersimpan lokal di perangkat Anda.
               Pilih preset untuk demo, atau langsung input data laporan keuangan kampus.
+            </p>
+            <p className="fcb-template">
+              Belum siap input langsung? <button className="fcb-template-link" onClick={() => downloadTemplate('csv')}>
+                <window.Icon name="save" size={13} /> Unduh template Excel
+              </button>
             </p>
           </div>
           <div className="fcb-right">

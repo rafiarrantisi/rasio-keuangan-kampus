@@ -137,6 +137,30 @@ app.post('/api/projects/:id/duplicate', (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Snapshots (versioning) ────────────────────────────────────────
+app.get('/api/projects/:id/snapshots', (req, res) => {
+  try { res.json(db.getSnapshots(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/projects/:id/snapshots/restore', (req, res) => {
+  try {
+    const { ts } = req.body;
+    if (!ts) return res.status(400).json({ error: 'Missing snapshot ts' });
+    const restored = db.restoreSnapshot(req.params.id, ts);
+    if (!restored) return res.status(404).json({ error: 'Snapshot not found' });
+    res.json(restored);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/projects/:id/snapshots/:ts', (req, res) => {
+  try {
+    const ok = db.deleteSnapshot(req.params.id, req.params.ts);
+    if (!ok) return res.status(404).json({ error: 'Project not found' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Fallback to index.html (SPA) ───────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

@@ -54,6 +54,11 @@ const apiSaveProject = apiSaveProfile;
 const apiDeleteProject = apiDeleteProfile;
 const apiDuplicateProject = apiDuplicateProfile;
 
+// Snapshots
+async function apiGetSnapshots(id) { return apiFetch('GET', '/api/projects/' + encodeURIComponent(id) + '/snapshots'); }
+async function apiRestoreSnapshot(id, ts) { return apiFetch('POST', '/api/projects/' + encodeURIComponent(id) + '/snapshots/restore', { ts }); }
+async function apiDeleteSnapshot(id, ts) { return apiFetch('DELETE', '/api/projects/' + encodeURIComponent(id) + '/snapshots/' + encodeURIComponent(ts)); }
+
 // ── Health ───────────────────────────────────────────────────────────────────
 async function apiHealth() {
   return apiFetch('GET', '/api/health');
@@ -75,5 +80,8 @@ window.apiGetProject    = apiGetProject;
 window.apiSaveProject   = apiSaveProject;
 window.apiDeleteProject = apiDeleteProject;
 window.apiDuplicateProject = apiDuplicateProject;
+window.apiGetSnapshots = apiGetSnapshots;
+window.apiRestoreSnapshot = apiRestoreSnapshot;
+window.apiDeleteSnapshot = apiDeleteSnapshot;
 
 })();

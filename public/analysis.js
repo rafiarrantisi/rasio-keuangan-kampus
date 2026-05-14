@@ -365,8 +365,201 @@ function buildExecSummary(result, data) {
     .filter(Boolean).join(' ');
 }
 
+// ─── Rich Narrative Generator (deterministic) ────────────────────────────────
+// Returns structured output: { headline, paragraphs[], callouts[] }
+// Used by PrintReport executive summary
+function buildNarrative(result, data) {
+  const v = result.verdict;
+  const cfi = result.CFI_total;
+  const lam = result.lamebaTerpenuhi;
+  const ikk = result.IKK || 0;
+  const d = result.derived || {};
+  const TS = d.TS || {};
+  const TS1 = d['TS-1'] || {};
+  const TS2 = d['TS-2'] || {};
+
+  const verdictLabels = {
+    SANGAT_BAIK: 'SANGAT BAIK',
+    BAIK: 'BAIK',
+    PERHATIAN: 'PERHATIAN',
+    BERISIKO: 'BERISIKO',
+  };
+
+  // ═══ Headline ═══
+  const headline = (() => {
+    if (v === 'SANGAT_BAIK') {
+      return `Kondisi keuangan institusi berada dalam kategori ${verdictLabels[v]} dengan fondasi yang sangat kuat untuk mendukung tridharma dan ekspansi strategis.`;
+    } else if (v === 'BAIK') {
+      return `Kondisi keuangan institusi tergolong ${verdictLabels[v]}, memenuhi standar LAMEMBA dengan beberapa ruang optimasi untuk mencapai predikat tertinggi.`;
+    } else if (v === 'PERHATIAN') {
+      return `Kondisi keuangan institusi memerlukan ${verdictLabels[v].toLowerCase()} pada beberapa indikator kritis sebelum dapat mempertahankan akreditasi.`;
+    } else {
+      return `Kondisi keuangan institusi berada dalam kategori ${verdictLabels[v]} dan memerlukan tindakan korektif segera untuk menjaga kelangsungan operasional.`;
+    }
+  })();
+
+  // ═══ Paragraphs ═══
+  const paragraphs = [];
+
+  // P1: Overall scorecard
+  const cfiGap = (() => {
+    if (cfi >= 85) return null;
+    if (cfi >= 70) return { to: 'SANGAT BAIK', gap: 85 - cfi };
+    if (cfi >= 50) return { to: 'BAIK', gap: 70 - cfi };
+    return { to: 'PERHATIAN', gap: 50 - cfi };
+  })();
+  let p1 = `Skor Composite Financial Index (CFI) institusi adalah ${cfi.toFixed(1)} dari 100, dengan ${lam} dari 10 indikator LAMEMBA terpenuhi dan Indeks Kinerja Keuangan (IKK) sebesar ${ikk.toFixed(2)} dari 4.00.`;
+  if (cfiGap) {
+    p1 += ` Untuk mencapai predikat ${cfiGap.to}, dibutuhkan peningkatan CFI sebesar ${cfiGap.gap.toFixed(1)} poin.`;
+  } else {
+    p1 += ` Skor ini berada di atas threshold predikat tertinggi (≥ 85) — kinerja yang patut dipertahankan.`;
+  }
+  paragraphs.push(p1);
+
+  // P2: Year-over-year revenue trend
+  if (TS.totalRev && TS1.totalRev && TS2.totalRev) {
+    const yoy = ((TS.totalRev - TS1.totalRev) / TS1.totalRev) * 100;
+    const cagr = (Math.pow(TS.totalRev / TS2.totalRev, 0.5) - 1) * 100;
+    const trendLabel = yoy > 5 ? 'tumbuh positif' : yoy > 0 ? 'tumbuh tipis' : yoy > -5 ? 'stagnan' : 'menurun';
+    paragraphs.push(
+      `Total pendapatan ${trendLabel} ${Math.abs(yoy).toFixed(1)}% year-over-year (TS-1 → TS), dengan CAGR 2 tahun sebesar ${cagr >= 0 ? '+' : ''}${cagr.toFixed(1)}%. ${yoy > 5 ? 'Trajektori pertumbuhan yang sehat mendukung kapasitas investasi dan ekspansi.' : yoy > 0 ? 'Pertumbuhan moderat — diversifikasi sumber pendapatan dapat memperkuat resiliensi.' : yoy > -5 ? 'Pendapatan relatif stabil — fokus pada efisiensi operasional dan pengembangan sumber pendapatan baru.' : 'Penurunan pendapatan memerlukan analisis mendalam terhadap demand mahasiswa dan struktur biaya.'}`
+    );
+  }
+
+  // P3: Expense composition
+  if (TS.totalExp && TS.expOps) {
+    const opsRatio = (TS.expOps / TS.totalExp) * 100;
+    const sdmRatio = (TS.expSDM / TS.totalExp) * 100;
+    const capexRatio = ((TS.expCapex || 0) + (TS.expMaint || 0)) / TS.totalExp * 100;
+    const opsOk = opsRatio >= 65;
+    const sdmOk = sdmRatio >= 15;
+    const capexOk = capexRatio >= 20;
+    const okCount = [opsOk, sdmOk, capexOk].filter(Boolean).length;
+    paragraphs.push(
+      `Komposisi pengeluaran menunjukkan REO ${opsRatio.toFixed(1)}% (target ≥65%), RISDM ${sdmRatio.toFixed(1)}% (target ≥15%), dan RISP ${capexRatio.toFixed(1)}% (target ≥20%). ${okCount === 3 ? 'Ketiga rasio efisiensi terpenuhi — alokasi sumber daya konsisten dengan best practice manajemen PT.' : okCount === 2 ? 'Dua dari tiga rasio efisiensi terpenuhi; satu komponen perlu rebalancing.' : okCount === 1 ? 'Hanya satu dari tiga rasio efisiensi yang memenuhi target; restrukturisasi alokasi anggaran direkomendasikan.' : 'Ketiga rasio efisiensi belum memenuhi target — review menyeluruh alokasi biaya operasional diperlukan.'}`
+    );
+  }
+
+  // P4: Strengths & weaknesses summary
+  const strengths = result.ratios
+    .filter(r => r.status === 'ok')
+    .sort((a, b) => (b.lameba ? 1 : 0) - (a.lameba ? 1 : 0))
+    .slice(0, 3);
+  const weaknesses = result.ratios
+    .filter(r => r.status === 'bad' || r.status === 'warn')
+    .sort((a, b) => {
+      const la = a.lameba ? 1 : 0, lb = b.lameba ? 1 : 0;
+      if (lb !== la) return lb - la;
+      return (a.status === 'bad' ? 1 : 0) - (b.status === 'bad' ? 1 : 0);
+    })
+    .slice(0, 3);
+
+  if (strengths.length > 0) {
+    const items = strengths.map(s => s.name).join(', ');
+    paragraphs.push(
+      `Kekuatan utama institusi terletak pada: ${items}. Indikator-indikator ini menjadi modal untuk akselerasi pertumbuhan dan diferensiasi kompetitif.`
+    );
+  }
+  if (weaknesses.length > 0) {
+    const items = weaknesses.map(w => w.name + (w.lameba ? ' (LAMEMBA wajib)' : '')).join(', ');
+    paragraphs.push(
+      `Area yang memerlukan perhatian prioritas: ${items}. ${weaknesses.filter(w => w.lameba).length > 0 ? 'Indikator yang ditandai LAMEMBA wajib harus diperbaiki untuk mempertahankan/meningkatkan akreditasi.' : 'Walau bukan indikator wajib LAMEMBA, perbaikan area ini akan memperkuat profil keuangan keseluruhan.'}`
+    );
+  }
+
+  // ═══ Callouts (decision-support snippets) ═══
+  const callouts = [];
+
+  // Verdict-aware callout
+  if (v === 'SANGAT_BAIK') {
+    callouts.push({
+      type: 'positive',
+      title: 'Status Sustainable',
+      body: 'Institusi berada di posisi finansial sustainable. Fokus berikutnya: optimasi yield endowment dan pengembangan program strategis jangka panjang.',
+    });
+  } else if (v === 'BERISIKO') {
+    callouts.push({
+      type: 'risk',
+      title: 'Tindakan Mendesak',
+      body: 'Profil keuangan menunjukkan risiko material terhadap kelangsungan operasional. Diperlukan rapat darurat senat untuk merancang turnaround plan dalam 90 hari.',
+    });
+  }
+
+  // Liquidity callout
+  const liquidityRatio = result.ratios.find(r => r.id === 'L9_RL');
+  if (liquidityRatio) {
+    if (liquidityRatio.v < 1.0) {
+      callouts.push({
+        type: 'risk',
+        title: 'Likuiditas di Bawah Threshold',
+        body: `Rasio Likuiditas ${liquidityRatio.v.toFixed(2)}× berada di bawah target LAMEMBA L9 (≥ 1.00×). Aset lancar tidak cukup menutup kewajiban jangka pendek — perlu injeksi kas atau restrukturisasi utang.`,
+      });
+    } else if (liquidityRatio.v < 1.5) {
+      callouts.push({
+        type: 'warning',
+        title: 'Likuiditas Marginal',
+        body: `Rasio Likuiditas ${liquidityRatio.v.toFixed(2)}× memenuhi minimum LAMEMBA namun margin tipis. Pertimbangkan menambah cash reserve untuk buffer 6 bulan operasional.`,
+      });
+    }
+  }
+
+  // DSCR callout
+  const dscr = result.ratios.find(r => r.id === 'dscr');
+  if (dscr && dscr.v < 1.5) {
+    callouts.push({
+      type: 'warning',
+      title: 'Debt Service Capacity',
+      body: `DSCR ${dscr.v.toFixed(2)}× mendekati threshold kritis. EBITDA tidak jauh dari kewajiban cicilan utang; pertimbangkan refinancing atau pelunasan dipercepat.`,
+    });
+  }
+
+  // Tridharma compliance
+  if (TS.expOps && TS.triPend && TS.triRiset && TS.triPkM) {
+    const triTotal = TS.triPend + TS.triRiset + TS.triPkM;
+    if (triTotal > 0) {
+      const pP = (TS.triPend / triTotal) * 100;
+      const pR = (TS.triRiset / triTotal) * 100;
+      const pM = (TS.triPkM / triTotal) * 100;
+      const dev = Math.max(Math.abs(pP - 50), Math.abs(pR - 30), Math.abs(pM - 20));
+      if (dev > 10) {
+        callouts.push({
+          type: 'warning',
+          title: 'Alokasi Tridharma Tidak Seimbang',
+          body: `Proporsi Pend/Riset/PkM adalah ${pP.toFixed(0)}%/${pR.toFixed(0)}%/${pM.toFixed(0)}% — deviasi ${dev.toFixed(0)} pp dari target LAMEMBA L10 (50/30/20). Rebalance alokasi anggaran tridharma direkomendasikan.`,
+        });
+      }
+    }
+  }
+
+  // Endowment opportunity callout
+  if (TS.bsEndowment && TS.bsAsetTetap) {
+    const endowRatio = TS.bsEndowment / TS.bsAsetTetap;
+    if (endowRatio > 1.5) {
+      callouts.push({
+        type: 'info',
+        title: 'Endowment Dominan',
+        body: `Endowment sebesar ${(endowRatio).toFixed(2)}× aset tetap. Potensi memperluas spending rate (target sehat 4–6%) untuk pendanaan beasiswa atau program strategis.`,
+      });
+    } else if (TS.bsEndowment < TS.totalRev * 0.5) {
+      callouts.push({
+        type: 'info',
+        title: 'Pengembangan Endowment',
+        body: 'Endowment relatif kecil terhadap pendapatan tahunan. Program fundraising alumni dan donasi terstruktur dapat memperkuat resiliensi jangka panjang.',
+      });
+    }
+  }
+
+  // Limit to top 4 callouts to avoid overload
+  return {
+    headline,
+    paragraphs,
+    callouts: callouts.slice(0, 4),
+  };
+}
+
 // ─── Expose ───────────────────────────────────────────────────────────────────
 window.buildAnalysis   = buildAnalysis;
 window.buildExecSummary = buildExecSummary;
+window.buildNarrative  = buildNarrative;
 
 })();

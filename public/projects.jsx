@@ -12,6 +12,7 @@ function ProjectsView({ activeProject, onOpenProject, onBackToLanding, onNewProj
   const [newOpen, setNewOpen] = React.useState(false);
   const [renameProj, setRenameProj] = React.useState(null);
   const [confirmDelete, setConfirmDelete] = React.useState(null);
+  const [snapshotProj, setSnapshotProj] = React.useState(null);
 
   const refresh = React.useCallback(() => {
     if (typeof window.apiGetProjects !== 'function') {
@@ -151,6 +152,7 @@ function ProjectsView({ activeProject, onOpenProject, onBackToLanding, onNewProj
             onRename={() => setRenameProj(p)}
             onExport={() => handleExport(p)}
             onDelete={() => setConfirmDelete(p)}
+            onSnapshots={() => setSnapshotProj(p)}
           />
         ))}
       </div>
@@ -173,8 +175,139 @@ function ProjectsView({ activeProject, onOpenProject, onBackToLanding, onNewProj
       {newOpen && <NewProjectModal onCreate={onNewProject} onClose={() => setNewOpen(false)} />}
       {renameProj && <RenameModal project={renameProj} onSave={handleRenameSave} onClose={() => setRenameProj(null)} />}
       {confirmDelete && <DeleteConfirm project={confirmDelete} onConfirm={() => handleDelete(confirmDelete.id)} onClose={() => setConfirmDelete(null)} />}
+      {snapshotProj && <SnapshotHistoryModal project={snapshotProj} onClose={() => setSnapshotProj(null)} onRestore={() => { refresh(); setSnapshotProj(null); }} />}
     </div>
   );
+}
+
+function SnapshotHistoryModal({ project, onClose, onRestore }) {
+  const [snapshots, setSnapshots] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [restoringTs, setRestoringTs] = React.useState(null);
+
+  const refresh = React.useCallback(() => {
+    if (typeof window.apiGetSnapshots !== 'function') {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    window.apiGetSnapshots(project.id)
+      .then(list => { setSnapshots(list.reverse()); setLoading(false); }) // newest first
+      .catch(() => { setSnapshots([]); setLoading(false); });
+  }, [project.id]);
+
+  React.useEffect(() => { refresh(); }, [refresh]);
+
+  const handleRestore = async (snap) => {
+    if (!confirm('Yakin restore ke versi ini? Data saat ini akan otomatis di-snapshot.')) return;
+    setRestoringTs(snap.ts);
+    try {
+      await window.apiRestoreSnapshot(project.id, snap.ts);
+      window.showToast?.('Versi berhasil dipulihkan', { variant: 'success' });
+      onRestore();
+    } catch (e) {
+      window.showToast?.('Gagal restore versi', { variant: 'error' });
+    }
+    setRestoringTs(null);
+  };
+
+  const handleDelete = async (snap) => {
+    if (!confirm('Hapus snapshot ini permanen?')) return;
+    try {
+      await window.apiDeleteSnapshot(project.id, snap.ts);
+      window.showToast?.('Snapshot dihapus', { variant: 'info' });
+      refresh();
+    } catch (e) {
+      window.showToast?.('Gagal menghapus snapshot', { variant: 'error' });
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box snapshot-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3><window.Icon name="refresh-cw" size={16} /> Riwayat Versi</h3>
+          <button className="modal-close" onClick={onClose} aria-label="Tutup">
+            <window.Icon name="x" size={16} />
+          </button>
+        </div>
+        <p className="snapshot-sub">
+          Project <b>{project.name}</b> · {snapshots.length} snapshot tersimpan
+          <span className="snapshot-note">Setiap kali Anda menyimpan, versi sebelumnya disimpan otomatis (maks. 20).</span>
+        </p>
+
+        {loading && <div className="snapshot-loading">Memuat riwayat…</div>}
+
+        {!loading && snapshots.length === 0 && (
+          <div className="snapshot-empty">
+            <window.Icon name="info" size={20} />
+            <p>Belum ada snapshot. Snapshot dibuat otomatis setiap kali Anda menyimpan perubahan ke project ini.</p>
+          </div>
+        )}
+
+        {!loading && snapshots.length > 0 && (
+          <div className="snapshot-list">
+            {snapshots.map((snap, i) => {
+              const rs = snap.result_summary;
+              return (
+                <div key={snap.ts} className="snapshot-item">
+                  <div className="snap-info">
+                    <div className="snap-time">
+                      <window.Icon name="refresh-cw" size={11} />
+                      {formatFullDate(snap.ts)}
+                    </div>
+                    {snap.label && <div className="snap-label">{snap.label}</div>}
+                    {rs && (
+                      <div className="snap-summary">
+                        {rs.verdict && <span className={'snap-verdict v-' + rs.verdict}>{window.VERDICT_INFO?.[rs.verdict]?.label || rs.verdict}</span>}
+                        {rs.CFI_total != null && <span className="snap-metric mono">CFI {rs.CFI_total.toFixed(1)}</span>}
+                        {rs.lameba_fulfilled != null && <span className="snap-metric mono">LAMEMBA {rs.lameba_fulfilled}/10</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="snap-actions">
+                    <button
+                      className="btn-ghost btn-sm"
+                      onClick={() => handleRestore(snap)}
+                      disabled={restoringTs === snap.ts}
+                    >
+                      {restoringTs === snap.ts ? 'Memulihkan…' : (
+                        <><window.Icon name="rotate-ccw" size={12} /> Pulihkan</>
+                      )}
+                    </button>
+                    <button
+                      className="btn-ghost btn-sm snap-delete-btn"
+                      onClick={() => handleDelete(snap)}
+                      title="Hapus snapshot ini"
+                    >
+                      <window.Icon name="trash-2" size={12} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn-ghost" onClick={onClose}>Tutup</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatFullDate(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('id-ID', {
+      day: 'numeric', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function ProjectsHeader({ count, onBack, onNew, sortBy, onSortChange, compareMode, onToggleCompare }) {
@@ -242,7 +375,7 @@ function ProjectsFilterBar({ searchQ, onSearchChange, filterType, onFilterChange
   );
 }
 
-function ProjectCard({ project, isActive, compareMode, isSelected, canSelect, onSelect, onOpen, onDuplicate, onRename, onExport, onDelete }) {
+function ProjectCard({ project, isActive, compareMode, isSelected, canSelect, onSelect, onOpen, onDuplicate, onRename, onExport, onDelete, onSnapshots }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const rs = project.result_summary;
   const verdict = rs?.verdict;
@@ -320,6 +453,11 @@ function ProjectCard({ project, isActive, compareMode, isSelected, canSelect, on
               <button onClick={() => { setMenuOpen(false); onDuplicate(); }}>
                 <window.Icon name="folder-open" size={13} /> Duplikasi
               </button>
+              {onSnapshots && (
+                <button onClick={() => { setMenuOpen(false); onSnapshots(); }}>
+                  <window.Icon name="refresh-cw" size={13} /> Riwayat Versi
+                </button>
+              )}
               <button onClick={() => { setMenuOpen(false); onExport(); }}>
                 <window.Icon name="save" size={13} /> Export JSON
               </button>

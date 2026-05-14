@@ -10,7 +10,7 @@ function BlueprintGrid({ style }) {
     <svg className="decor-svg" viewBox="0 0 600 600" aria-hidden="true" style={style}>
       <defs>
         <pattern id="bp-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(15)">
-          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(31,59,107,0.5)" strokeWidth="0.5" />
         </pattern>
         <linearGradient id="bp-fade" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="white" stopOpacity="1" />
@@ -44,10 +44,10 @@ function ConcentricRings({ style }) {
   return (
     <svg className="decor-svg" viewBox="0 0 480 480" aria-hidden="true" style={style}>
       <g fill="none" strokeWidth="1.5">
-        <circle cx="240" cy="240" r="60"  stroke="rgba(255,255,255,0.3)" />
-        <circle cx="240" cy="240" r="120" stroke="rgba(255,255,255,0.22)" />
+        <circle cx="240" cy="240" r="60"  stroke="rgba(31,59,107,0.25)" />
+        <circle cx="240" cy="240" r="120" stroke="rgba(31,59,107,0.18)" />
         <circle cx="240" cy="240" r="180" stroke="rgba(184,134,44,0.5)" strokeDasharray="4 6" />
-        <circle cx="240" cy="240" r="220" stroke="rgba(255,255,255,0.14)" />
+        <circle cx="240" cy="240" r="220" stroke="rgba(31,59,107,0.12)" />
       </g>
       <circle cx="240" cy="240" r="6" fill="#b8862c" />
     </svg>
@@ -71,7 +71,7 @@ function ConnectingDots({ style }) {
 function BuildingSilhouette({ style }) {
   return (
     <svg className="decor-svg" viewBox="0 0 240 320" aria-hidden="true" style={style}>
-      <g fill="rgba(255,255,255,0.55)">
+      <g fill="rgba(31,59,107,0.45)">
         {/* Roof / pediment */}
         <polygon points="20,90 120,30 220,90" />
         <rect x="14" y="88" width="212" height="14" />
@@ -94,7 +94,7 @@ function HexMesh({ style }) {
     <svg className="decor-svg" viewBox="0 0 600 600" aria-hidden="true" style={style}>
       <defs>
         <pattern id="hex-p" x="0" y="0" width="60" height="52" patternUnits="userSpaceOnUse">
-          <polygon points="30,2 56,17 56,47 30,62 4,47 4,17" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.8" />
+          <polygon points="30,2 56,17 56,47 30,62 4,47 4,17" fill="none" stroke="rgba(31,59,107,0.5)" strokeWidth="0.8" />
         </pattern>
       </defs>
       <rect width="600" height="600" fill="url(#hex-p)" />

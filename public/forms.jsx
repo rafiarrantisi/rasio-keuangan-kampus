@@ -218,7 +218,7 @@ function FieldRow({ k, label, info, allowNegative, data, onChange, derived, deri
       <span>{label}</span>
     </div>
     {['TS','TS-1','TS-2'].map(yr => (
-      <div className="cell-input" key={yr}>
+      <div className="cell-input" key={yr} data-year={yr}>
         {derived ? <div className="cell-derived" style={{flex:1}}>{fmtRpFull(derivedFn(data[yr]))}</div> :
           <CurrencyInput value={data[yr][k]} onChange={(v) => onChange(yr, k, v)} warn={warn && yr === 'TS'} allowNegative={allowNegative} />}
       </div>

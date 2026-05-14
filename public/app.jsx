@@ -40,6 +40,7 @@ function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const saveTimer  = useRef(null);
   const backendRef = useRef(null);
 
@@ -277,8 +278,16 @@ function App() {
       <Header step={step} onStep={setStep} onReset={reset} onTweaks={() => setTweaksOpen(true)} saveStatus={saveStatus}
               activeProfile={activeProfile} onSave={() => activeProfile ? handleSaveProfile() : setShowSaveDialog(true)}
               onSaveAs={() => setShowSaveDialog(true)} onProjects={goProjects} onBrandClick={goLanding}
-              onGlossary={() => setGlossaryOpen(true)} />
-      <Sidebar step={step} onStep={setStep} result={result} hasData={hasAnyData(data)} />
+              onGlossary={() => setGlossaryOpen(true)}
+              onMenuToggle={() => setMobileSidebarOpen(o => !o)} />
+      <Sidebar
+        step={step}
+        onStep={(s) => { setStep(s); setMobileSidebarOpen(false); }}
+        result={result}
+        hasData={hasAnyData(data)}
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+      />
       <main className="main">
         {step === 0 && <StepStart onPreset={loadPreset} onBlank={() => { reset(); setStep(1); }} />}
         {step === 1 && <window.StepRev data={data} onChange={onChange} />}
@@ -317,36 +326,70 @@ function hasAnyData(d) {
   return Object.values(d.TS).some(v => v && v !== 0);
 }
 
-function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onProjects, onBrandClick, onGlossary }) {
+function Header({ step, onStep, onReset, onTweaks, saveStatus, activeProfile, onSave, onSaveAs, onProjects, onBrandClick, onGlossary, onMenuToggle }) {
+  const [actionsOpen, setActionsOpen] = useState(false);
   return (
     <header className="topbar">
-      <button className="brand brand-btn" onClick={onBrandClick} title="Kembali ke beranda" type="button">
-        <window.Logo size={40} variant="light" />
-        <div className="brand-text">
-          <div className="brand-name">Rasio Keuangan Kampus</div>
-          <div className="brand-sub">
-            {activeProfile ? activeProfile.name : 'Simulator LAMEMBA · Composite Financial Index'}
+      <div className="topbar-left">
+        <button className="topbar-menu-btn" onClick={onMenuToggle} aria-label="Buka menu navigasi" type="button">
+          <window.Icon name="menu" size={18} />
+        </button>
+        <button className="brand brand-btn" onClick={onBrandClick} title="Kembali ke beranda" type="button">
+          <window.Logo size={40} variant="light" />
+          <div className="brand-text">
+            <div className="brand-name">Rasio Keuangan Kampus</div>
+            <div className="brand-sub">
+              {activeProfile ? activeProfile.name : 'Simulator LAMEMBA · CFI'}
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+      </div>
       <div className="topbar-actions">
         <span className="step-pill">Langkah {step + 1} / 8</span>
         {saveStatus === 'saving'  && <span className="save-status saving">Menyimpan…</span>}
         {saveStatus === 'saved'   && <span className="save-status saved">Tersimpan</span>}
         {saveStatus === 'offline' && <span className="save-status offline" title="Server tidak tersedia — data disimpan lokal">Offline</span>}
-        <button className="btn-ghost" onClick={onGlossary} title="Istilah Keuangan"><window.Icon name="info" size={14} /> Istilah</button>
-        <button className="btn-ghost" onClick={onProjects}><window.Icon name="folder-open" size={14} /> Project Saya</button>
-        <button className="btn-ghost" onClick={onSave}><window.Icon name="save" size={14} /> Simpan</button>
-        <button className="btn-ghost" onClick={onSaveAs}><window.Icon name="edit-2" size={14} /> Simpan Sebagai…</button>
-        <button className="btn-ghost" onClick={onReset}><window.Icon name="rotate-ccw" size={14} /> Reset</button>
+        <div className="topbar-actions-group">
+          <button className="btn-ghost" onClick={onGlossary} title="Istilah Keuangan"><window.Icon name="info" size={14} /> <span className="btn-text">Istilah</span></button>
+          <button className="btn-ghost" onClick={onProjects}><window.Icon name="folder-open" size={14} /> <span className="btn-text">Project</span></button>
+          <button className="btn-ghost" onClick={onSave}><window.Icon name="save" size={14} /> <span className="btn-text">Simpan</span></button>
+          <button className="btn-ghost btn-overflow" onClick={onSaveAs} title="Simpan sebagai project baru"><window.Icon name="edit-2" size={14} /> <span className="btn-text">Simpan Sebagai</span></button>
+          <button className="btn-ghost btn-overflow" onClick={onReset} title="Reset data"><window.Icon name="rotate-ccw" size={14} /> <span className="btn-text">Reset</span></button>
+        </div>
+        {/* Mobile overflow menu */}
+        <div className="topbar-actions-mobile">
+          <button className="topbar-overflow-btn" onClick={() => setActionsOpen(o => !o)} aria-label="Menu lainnya" type="button">
+            <window.Icon name="menu" size={16} />
+          </button>
+          {actionsOpen && (
+            <>
+              <div className="topbar-overflow-bg" onClick={() => setActionsOpen(false)} />
+              <div className="topbar-overflow-menu">
+                <button onClick={() => { setActionsOpen(false); onGlossary(); }}><window.Icon name="info" size={14}/> Istilah Keuangan</button>
+                <button onClick={() => { setActionsOpen(false); onProjects(); }}><window.Icon name="folder-open" size={14}/> Project Saya</button>
+                <button onClick={() => { setActionsOpen(false); onSave(); }}><window.Icon name="save" size={14}/> Simpan</button>
+                <button onClick={() => { setActionsOpen(false); onSaveAs(); }}><window.Icon name="edit-2" size={14}/> Simpan Sebagai…</button>
+                <button onClick={() => { setActionsOpen(false); onReset(); }} className="overflow-danger"><window.Icon name="rotate-ccw" size={14}/> Reset Data</button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
 }
 
-function Sidebar({ step, onStep, result, hasData }) {
+function Sidebar({ step, onStep, result, hasData, mobileOpen, onMobileClose }) {
   return (
-    <aside className="sidebar">
+    <>
+      {mobileOpen && <div className="sidebar-backdrop" onClick={onMobileClose} />}
+      <aside className={'sidebar ' + (mobileOpen ? 'sidebar-mobile-open' : '')}>
+      <div className="sidebar-mobile-header">
+        <span className="side-eyebrow-mobile">Wizard</span>
+        <button className="sidebar-close-mobile" onClick={onMobileClose} aria-label="Tutup">
+          <window.Icon name="x" size={16} />
+        </button>
+      </div>
       <div className="side-eyebrow">Wizard</div>
       <ol className="side-steps">
         {window.STEPS.map((s, i) => (
@@ -368,6 +411,7 @@ function Sidebar({ step, onStep, result, hasData }) {
         </div>
       )}
     </aside>
+    </>
   );
 }
 
